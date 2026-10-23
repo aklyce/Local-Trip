@@ -7,9 +7,10 @@ Local-Trip is a platform that helps plan trips to different places. The user put
 
 # 🔌 What external API you plan to use, and why
 It currently is planned to use the following APIs:
-1. https://photon.komoot.io/
-2. https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/
-3. https://open-meteo.com/
-4. Nager.Date
+1. https://photon.komoot.io: Get some geo-relevant data
+3. https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/: Get Events happening in the area
+4. https://open-meteo.com/: get weather data
+5. Nager.Date: Get data on (local) holidays
 
+## Potential AI-Integration
 + https://github.com/mlc-ai/web-llm
