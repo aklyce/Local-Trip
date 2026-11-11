@@ -1,0 +1,37 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fraunces', ui-serif, Georgia, serif;
+
+  /* Page palette: warm paper background, deep ink text, ocean accent */
+  --color-paper: #f6f4ef;
+  --color-ink: #14213d;
+  --color-ink-soft: #4a5568;
+  --color-ink-muted: #8a94a6;
+  --color-line: #e7e3da;
+  --color-accent: #0e7490;
+  --color-accent-strong: #155e75;
+  --color-sun: #f59e0b;
+
+  /* Chart series (validated categorical slots 1 and 2) */
+  --color-series-1: #2a78d6;
+  --color-series-2: #eb6834;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Calendar icon in date inputs picks up the text color */
+input[type='date']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.leaflet-container {
+  font-family: var(--font-sans);
+}
