@@ -30,12 +30,17 @@ export function useTripServices(id: number, trip: Trip | null | undefined) {
     [id],
   )
 
-  // First open (or a trip saved before a service existed): fetch only what's missing, once per trip.
+  // On open, fetch services that have nothing to show: never fetched, or failed last time with no
+  // saved data (e.g. an API key was missing and has since been added, or the network was down).
+  // Services with saved data are shown from cache without a request (FR-10).
   const autoLoaded = useRef<number | null>(null)
   useEffect(() => {
     if (!trip || autoLoaded.current === id) return
     autoLoaded.current = id
-    const missing = SERVICE_KEYS.filter((k) => !trip.snapshot?.[k])
+    const missing = SERVICE_KEYS.filter((k) => {
+      const state = trip.snapshot?.[k]
+      return !state || (state.status !== 'ok' && state.data === undefined)
+    })
     // Start after this render commits; load() updates the loading state as requests run.
     if (missing.length) queueMicrotask(() => void load(trip, missing))
   }, [trip, id, load])
