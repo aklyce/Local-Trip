@@ -102,7 +102,7 @@ function ExternalLink({ href, icon: Icon, label, note }: { href: string; icon: t
       <Icon className="size-5 shrink-0 text-accent" />
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold text-ink">{label}</span>
-        <span className="block text-xs text-ink-muted">{note}</span>
+        <span className="block text-sm text-ink-muted">{note}</span>
       </span>
       <ArrowUpRight className="size-4 shrink-0 text-ink-muted transition group-hover:text-accent" />
       <span className="sr-only">(opens in a new tab)</span>

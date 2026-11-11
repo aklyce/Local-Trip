@@ -104,7 +104,7 @@ export function ServiceCard<T>({ state, loading, onRetry, children, action, ...c
             </div>
           )}
           {children(state.data as T)}
-          {state.fetchedAt && !stale && <p className="mt-4 text-xs text-ink-muted">Updated {formatUpdated(state.fetchedAt)}</p>}
+          {state.fetchedAt && !stale && <p className="mt-4 text-sm text-ink-muted">Updated {formatUpdated(state.fetchedAt)}</p>}
         </>
       ) : loading || !state ? (
         <div aria-busy="true" className="space-y-3">

@@ -2,15 +2,18 @@
 // Any page can open the dialog through usePlanTrip() (see src/lib/planTrip.ts).
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowRight, Compass, Plus } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { Suspense, lazy, useCallback, useState } from 'react'
 import { HashRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
 import PlanTripDialog, { type PlanRequest } from './components/PlanTripDialog'
 import { db } from './db'
 import { PlanTripContext } from './lib/planTrip'
 import DiscoverPage from './pages/DiscoverPage'
 import HistoryPage from './pages/HistoryPage'
-import TripPage from './pages/TripPage'
 import type { Place } from './types'
+
+// The dashboard pulls in Recharts and Leaflet, so load it only when a trip is opened.
+// Discover and My trips stay in the main bundle for a fast first page.
+const TripPage = lazy(() => import('./pages/TripPage'))
 
 // Active link gets a pale fill and darker, heavier text (not color alone).
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -28,6 +31,17 @@ export default function App() {
     <HashRouter>
       <PlanTripContext.Provider value={openPlan}>
         <div className="flex min-h-screen flex-col">
+          {/* Keyboard users can jump past the navigation. Not an href="#…" because routing uses the hash. */}
+          <a
+            href="#main-content"
+            onClick={(e) => {
+              e.preventDefault()
+              document.getElementById('main-content')?.focus()
+            }}
+            className="sr-only z-[1200] rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:px-4 focus:py-2"
+          >
+            Skip to content
+          </a>
           <nav aria-label="Main" className="sticky top-0 z-[1100] border-b border-line/70 bg-paper/85 backdrop-blur-md">
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
               <Link to="/" className="flex items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-accent">
@@ -60,12 +74,14 @@ export default function App() {
               </div>
             </div>
           </nav>
-          <main className="flex-1">
-            <Routes>
-              <Route path="/" element={<DiscoverPage />} />
-              <Route path="/trip/:id" element={<TripPage />} />
-              <Route path="/history" element={<HistoryPage />} />
-            </Routes>
+          <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
+            <Suspense fallback={<p className="px-4 py-24 text-center text-ink-muted">Loading trip…</p>}>
+              <Routes>
+                <Route path="/" element={<DiscoverPage />} />
+                <Route path="/trip/:id" element={<TripPage />} />
+                <Route path="/history" element={<HistoryPage />} />
+              </Routes>
+            </Suspense>
           </main>
           <footer className="border-t border-line py-6 text-center text-sm text-ink-muted">
             Local Trip · INFO 253A Group 8 · Data from Photon, Open-Meteo, Ticketmaster, Nager.Date &amp; OSRM

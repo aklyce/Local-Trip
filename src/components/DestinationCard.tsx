@@ -31,7 +31,7 @@ export default function DestinationCard({ destination: d, onPlan }: { destinatio
       </div>
 
       <div className="flex flex-1 flex-col p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted">{d.region}</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-ink-muted">{d.region}</p>
         <h3 className="mt-1 font-display text-3xl text-ink">{city}</h3>
         <p className="mt-2 flex-1 text-[15px] leading-relaxed text-ink-soft">{d.blurb}</p>
 

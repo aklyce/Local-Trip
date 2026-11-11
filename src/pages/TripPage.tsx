@@ -109,11 +109,22 @@ export default function TripPage() {
         </div>
 
         {/* Tabs */}
-        <div role="tablist" aria-label="Trip sections" className="mt-8 flex gap-1 border-b border-line">
-          <TabButton selected={tab === 'overview'} onClick={() => setTab('overview')} controls="panel-overview">
+        {/* ←/→ switch tabs, following the ARIA tabs pattern */}
+        <div
+          role="tablist"
+          aria-label="Trip sections"
+          onKeyDown={(e) => {
+            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+            const next: Tab = tab === 'overview' ? 'packing' : 'overview'
+            setTab(next)
+            requestAnimationFrame(() => document.getElementById(`tab-${next}`)?.focus())
+          }}
+          className="mt-8 flex gap-1 border-b border-line"
+        >
+          <TabButton id="tab-overview" selected={tab === 'overview'} onClick={() => setTab('overview')} controls="panel-overview">
             Overview
           </TabButton>
-          <TabButton selected={tab === 'packing'} onClick={() => setTab('packing')} controls="panel-packing">
+          <TabButton id="tab-packing" selected={tab === 'packing'} onClick={() => setTab('packing')} controls="panel-packing">
             Packing list
             <span className="ml-1.5 rounded-full bg-paper px-1.5 text-xs text-ink-soft ring-1 ring-line">{progress.total}</span>
           </TabButton>
@@ -122,11 +133,11 @@ export default function TripPage() {
 
       <div className="mt-8">
         {tab === 'overview' ? (
-          <div id="panel-overview" role="tabpanel" aria-label="Overview" className="space-y-6">
+          <div id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="space-y-6">
             <Overview trip={trip as Trip & { id: number }} loading={loading} refresh={refresh} />
           </div>
         ) : (
-          <div id="panel-packing" role="tabpanel" aria-label="Packing list" className="max-w-3xl">
+          <div id="panel-packing" role="tabpanel" aria-labelledby="tab-packing" className="max-w-3xl">
             <ChecklistCard trip={{ ...trip, id }} hasForecast={hasForecastOrUnknown(trip, loading)} />
           </div>
         )}
@@ -222,11 +233,11 @@ function Overview({
         }
         action={
           isHistorical ? (
-            <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">
+            <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-sm font-semibold text-amber-900">
               Historical · not a forecast
             </span>
           ) : weather ? (
-            <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent-strong">Forecast</span>
+            <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-sm font-semibold text-accent-strong">Forecast</span>
           ) : undefined
         }
         state={snap.weather}
@@ -257,11 +268,13 @@ function Overview({
 }
 
 function TabButton({
+  id,
   selected,
   onClick,
   controls,
   children,
 }: {
+  id: string
   selected: boolean
   onClick: () => void
   controls: string
@@ -271,6 +284,9 @@ function TabButton({
     <button
       type="button"
       role="tab"
+      id={id}
+      // Only the selected tab is in the Tab order; arrows move between tabs.
+      tabIndex={selected ? 0 : -1}
       aria-selected={selected}
       aria-controls={controls}
       onClick={onClick}

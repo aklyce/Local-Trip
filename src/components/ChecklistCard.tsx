@@ -97,7 +97,7 @@ export default function ChecklistCard({ trip, hasForecast }: Props) {
                 {item.label}
               </label>
               {item.auto && (
-                <span className="flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent-strong">
+                <span className="flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-sm font-medium text-accent-strong">
                   <Sparkles className="size-3" aria-hidden /> Suggested
                 </span>
               )}

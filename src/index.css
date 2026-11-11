@@ -45,3 +45,23 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .leaflet-container {
   font-family: var(--font-sans);
 }
+
+/* PRD v2 VIS-6: every focusable element gets a visible ring by default (components may refine it). */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* PRD v2 VIS-6: respect "reduce motion" — no hover lifts, spins or smooth scrolling. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

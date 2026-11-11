@@ -18,13 +18,13 @@ export default function HolidaysPanel({ holidays }: { holidays: Holiday[] }) {
       {holidays.map((h) => (
         <li key={h.date + h.name} className="relative">
           <span className="absolute -left-[31px] top-1 size-3 rounded-full bg-sun ring-4 ring-white" />
-          <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+          <div className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
             {formatWeekday(h.date)} · {formatShort(h.date)}
           </div>
           <div className="flex flex-wrap items-center gap-2 font-semibold text-ink">
             {h.name}
             {h.regional && (
-              <span className="rounded-full bg-paper px-2 py-0.5 text-xs font-medium text-ink-soft ring-1 ring-line">
+              <span className="rounded-full bg-paper px-2 py-0.5 text-sm font-medium text-ink-soft ring-1 ring-line">
                 Some regions only
               </span>
             )}

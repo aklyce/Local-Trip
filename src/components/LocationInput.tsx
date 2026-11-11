@@ -146,7 +146,7 @@ export default function LocationInput({ label, value, onChange, placeholder = 'C
             {status !== 'loading' &&
               results.map((place, i) => (
                 <li
-                  key={`${place.lat},${place.lon}`}
+                  key={`${place.name}|${place.lat},${place.lon}`}
                   id={`${listId}-${i}`}
                   role="option"
                   aria-selected={i === active}

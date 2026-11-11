@@ -24,11 +24,11 @@ export default function EventsPanel({ events }: { events: EventItem[] }) {
                 <Ticket className="absolute inset-0 m-auto size-10 text-white/40" />
               )}
               <div className="absolute left-3 top-3 rounded-xl bg-white/95 px-2.5 py-1 text-center shadow-sm">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-accent">{formatWeekday(e.date)}</div>
+                <div className="text-sm font-semibold uppercase tracking-wide text-accent">{formatWeekday(e.date)}</div>
                 <div className="text-sm font-bold leading-tight text-ink">{formatShort(e.date)}</div>
               </div>
               {e.category && (
-                <span className="absolute right-3 top-3 rounded-full bg-black/50 px-2.5 py-1 text-xs font-medium text-white backdrop-blur">
+                <span className="absolute right-3 top-3 rounded-full bg-black/50 px-2.5 py-1 text-sm font-medium text-white backdrop-blur">
                   {e.category}
                 </span>
               )}

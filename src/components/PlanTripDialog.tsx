@@ -122,6 +122,7 @@ function PlanForm({ initialDestination, onCancel }: { initialDestination?: Place
           <DateField
             label="Departure"
             value={startDate}
+            autoFocus={!!initialDestination}
             min={today()}
             onChange={setStartDate}
             error={startInPast ? 'Departure can’t be in the past.' : undefined}
@@ -165,12 +166,15 @@ function DateField({
   value,
   min,
   error,
+  autoFocus,
   onChange,
 }: {
   label: string
   value: string
   min?: string
   error?: string
+  /** Focused when the dialog opens (a card already chose the destination). */
+  autoFocus?: boolean
   onChange: (value: string) => void
 }) {
   return (
@@ -181,6 +185,7 @@ function DateField({
         value={value}
         min={min}
         required
+        data-autofocus={autoFocus || undefined}
         aria-invalid={!!error || undefined}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-xl border border-line bg-white px-3.5 py-3 text-base text-ink focus:border-accent focus:outline-none focus:ring-3 focus:ring-accent/20 aria-invalid:border-rose-400"

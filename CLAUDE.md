@@ -23,11 +23,13 @@ User enters origin, destination and dates → gets a trip dashboard (weather, ev
 - 40 of 100 points = the live demo matching the slides. **Reliability beats feature count.**
 - No API keys in the repo. `.env` is gitignored; `VITE_TICKETMASTER_KEY` is shared privately.
 
-## Discovery redesign (PRD v2, in progress on `feature/discovery-redesign`)
+## Discovery redesign (PRD v2, built on `feature/discovery-redesign`)
 
 Angel's PRD v2 ("Local Trip — Discovery Redesign") + prototype (https://local-trip-discover-angel.aklyce.chatgpt.site/) are the target design. Approach: keep this repo's APIs, per-service card states, Dexie, Recharts chart and Leaflet map; port the prototype's look, Discover page and shared plan dialog; add checklist and transport.
 
-- Phases: 0 tokens/fonts + baseline commit (done) → 1 Discover + `PlanTripDialog` (done; photos still missing in `public/images/`, cards fall back to gradients) → 2 checklist (Dexie v2) (done; rules in `src/lib/checklist.ts`, writes via `saveSnapshot`/`editTrip` in `src/db.ts` so refresh never overwrites edits) → 3 dashboard restyle, per-service stale snapshots, 10 s timeouts, transport, history (done) → 4 strict TS, responsive/keyboard checks, scope freeze Nov 22.
+- Phases: 0 tokens/fonts + baseline commit (done) → 1 Discover + `PlanTripDialog` (done; photos still missing in `public/images/`, cards fall back to gradients) → 2 checklist (Dexie v2) (done; rules in `src/lib/checklist.ts`, writes via `saveService`/`editTrip` in `src/db.ts` so refresh never overwrites edits) → 3 dashboard restyle, per-service stale snapshots, 10 s timeouts, transport, history (done) → 4 strict TS, focus/reduced-motion, 375–1440 px and keyboard checks, README (done).
+- **Scope is frozen** (PRD: Nov 22). From here: bug fixes, demo data, slides, `LEARNINGS.md`, fallback recording (Nov 27). No new features.
+- Still open: Discover photos from Angel (`public/images/<id>.jpg`, licensing), team sign-off on the defaults below, Safari check, events card with a real key, merge to `main`.
 - Proposed defaults (team still to confirm): keep numeric `++id` (no UUID migration); Discover = 6 curated California places, origin fixed to Berkeley; keep `VITE_TICKETMASTER_KEY` in the browser and say so in README; owners unassigned.
 - Visual tokens live in `src/index.css` `@theme` (PRD VIS-2 palette, Libre Caslon Display + DM Sans). Use token classes, not hex values.
 
@@ -47,7 +49,7 @@ Angel's PRD v2 ("Local Trip — Discovery Redesign") + prototype (https://local-
 - Dexie is at `version(3)` (v3 converted old `{ ok, data }` snapshots).
 - Code must be well commented (course Part III): short header comment per API module and page.
 - Before saying work is done: `npm run build` and `npm run lint` must pass.
-- Note: `tsconfig.app.json` does not set `strict` yet, although PRD NFR-6 expects strict mode.
+- TypeScript `strict` is on (PRD NFR-6). Body text users need to read is ≥ 14 px (`text-sm`); `text-xs` only for decorative eyebrows and count badges.
 
 ## Working with the user
 

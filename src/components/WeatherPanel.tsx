@@ -59,8 +59,8 @@ export default function WeatherPanel({ weather }: { weather: WeatherResult }) {
             title={describeWeatherCode(d.weatherCode)}
             className="flex min-w-24 flex-1 shrink-0 flex-col items-center gap-1.5 rounded-2xl bg-paper px-2 py-3 text-center"
           >
-            <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{formatWeekday(d.date)}</span>
-            <span className="text-xs text-ink-muted">{formatShort(d.date)}</span>
+            <span className="text-sm font-semibold uppercase tracking-wide text-ink-muted">{formatWeekday(d.date)}</span>
+            <span className="text-sm text-ink-muted">{formatShort(d.date)}</span>
             <WeatherIcon code={d.weatherCode} className="my-1 size-8" />
             <span className="text-sm">
               <span className="font-semibold text-ink">{Math.round(d.tempMax)}°</span>{' '}
@@ -75,7 +75,7 @@ export default function WeatherPanel({ weather }: { weather: WeatherResult }) {
         <figure className="lg:col-span-3">
           <figcaption className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-semibold text-ink">Temperature (°C)</span>
-            <span className="flex gap-4 text-xs text-ink-soft">
+            <span className="flex gap-4 text-sm text-ink-soft">
               <span className="flex items-center gap-1.5">
                 <span className="h-0.5 w-4 rounded-full" style={{ background: HIGH }} /> Daily high
               </span>

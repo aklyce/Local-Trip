@@ -163,7 +163,7 @@ function TripCard({ trip: t, onDelete }: { trip: Trip; onDelete: () => void }) {
       <Link to={`/trip/${t.id}`} className="flex flex-1 flex-col focus-visible:outline-2 focus-visible:outline-accent">
         <div className="relative h-32 p-4 text-white" style={{ background: placeGradient(t.destination.name) }}>
           <span
-            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${upcoming ? 'bg-white text-ink' : 'bg-black/30 text-white backdrop-blur'}`}
+            className={`rounded-full px-2.5 py-1 text-sm font-semibold ${upcoming ? 'bg-white text-ink' : 'bg-black/30 text-white backdrop-blur'}`}
           >
             {upcoming ? 'Upcoming' : 'Past'}
           </span>
