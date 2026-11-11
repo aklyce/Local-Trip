@@ -1,9 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { CalendarDays, Luggage, Plus, Route, Search, Trash2 } from 'lucide-react'
+import { CalendarDays, ListChecks, Luggage, Plus, Route, Search, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { EmptyState } from '../components/Card'
 import { db } from '../db'
+import { checklistProgress, formatProgress } from '../lib/checklist'
 import { daysBetween, formatRange, today } from '../lib/dates'
 import { usePlanTrip } from '../lib/planTrip'
 import { placeGradient, shortName } from '../lib/style'
@@ -90,6 +91,9 @@ export default function HistoryPage() {
                           from {shortName(t.origin)}
                           {t.snapshot && ` · ${Math.round(t.snapshot.distanceKm).toLocaleString()} km`}
                         </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ListChecks className="size-4 text-ink-muted" /> {formatProgress(checklistProgress(t.checklist))}
                       </div>
                     </div>
                   </Link>

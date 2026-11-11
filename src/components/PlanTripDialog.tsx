@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DISCOVER_ORIGIN } from '../data/destinations'
 import { db } from '../db'
+import { mergeSuggestions, suggestLabels } from '../lib/checklist'
 import { addDays, daysBetween, today } from '../lib/dates'
 import type { Place } from '../types'
 import LocationInput from './LocationInput'
@@ -77,7 +78,10 @@ function PlanForm({ initialDestination, onCancel }: { initialDestination?: Place
     setSaveError(null)
     try {
       // Save first; the dashboard fetches API data and caches it on the trip.
-      const id = await db.trips.add({ origin, destination, startDate, endDate, createdAt: Date.now() })
+      // The checklist starts with the non-weather suggestions; forecast items are added after the fetch.
+      const basics = { origin, destination, startDate, endDate }
+      const checklist = mergeSuggestions([], suggestLabels(basics))
+      const id = await db.trips.add({ ...basics, checklist, createdAt: Date.now() })
       onCancel()
       navigate(`/trip/${id}`)
     } catch {

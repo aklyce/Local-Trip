@@ -27,18 +27,18 @@ User enters origin, destination and dates → gets a trip dashboard (weather, ev
 
 Angel's PRD v2 ("Local Trip — Discovery Redesign") + prototype (https://local-trip-discover-angel.aklyce.chatgpt.site/) are the target design. Approach: keep this repo's APIs, `Section<T>`, Dexie, Recharts chart and Leaflet map; port the prototype's look, Discover page and shared plan dialog; add checklist and transport.
 
-- Phases: 0 tokens/fonts + baseline commit (done) → 1 Discover + `PlanTripDialog` (done; photos still missing in `public/images/`, cards fall back to gradients) → 2 checklist (Dexie v2) → 3 dashboard restyle, per-service stale snapshots, 10 s timeouts, transport, history → 4 strict TS, responsive/keyboard checks, scope freeze Nov 22.
+- Phases: 0 tokens/fonts + baseline commit (done) → 1 Discover + `PlanTripDialog` (done; photos still missing in `public/images/`, cards fall back to gradients) → 2 checklist (Dexie v2) (done; rules in `src/lib/checklist.ts`, writes via `saveSnapshot`/`editTrip` in `src/db.ts` so refresh never overwrites edits) → 3 dashboard restyle, per-service stale snapshots, 10 s timeouts, transport, history → 4 strict TS, responsive/keyboard checks, scope freeze Nov 22.
 - Proposed defaults (team still to confirm): keep numeric `++id` (no UUID migration); Discover = 6 curated California places, origin fixed to Berkeley; keep `VITE_TICKETMASTER_KEY` in the browser and say so in README; owners unassigned.
 - Visual tokens live in `src/index.css` `@theme` (PRD VIS-2 palette, Libre Caslon Display + DM Sans). Use token classes, not hex values.
 
 ## Decisions already made
 
 - **No login / backend.** Not required; Dexie (IndexedDB) satisfies persistence. If ever revisited: Supabase Auth (P2).
-- **P0 still to build:** preparation checklist on the dashboard (FR-15 to FR-18): rule-based items from weather + trip, user can tick/add/delete, stored on the trip, progress like "7 / 12 packed" in the header.
+- **Checklist (FR-15 to FR-18):** done in phase 2. Removed suggestions are remembered in `dismissedSuggestions`.
 - **P1:** transportation card (FR-12 to FR-14): OSRM driving time/distance, flight estimate (distance ÷ 800 km/h + 2 h) when driving > 8 h, Google Flights and Rome2Rio links.
 - **P2 / deferred:** nearby attractions (OpenTripMap), WebLLM trip variants (needs WebGPU, too risky to demo), user reviews.
 - New dashboard row (checklist + transportation) goes below the Weather card; existing layout stays.
-- Adding `checklist` and `snapshot.route` to `Trip` requires a Dexie `version(2)` schema bump in `src/db.ts`.
+- Dexie is at `version(2)` (checklist). Adding `snapshot.route` needs no index change; bump the version only if an upgrade must rewrite old trips.
 
 ## Stack and conventions
 

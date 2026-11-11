@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Clock,
   CloudSun,
+  ListChecks,
   Map as MapIcon,
   Moon,
   PartyPopper,
@@ -16,12 +17,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { fetchSnapshot } from '../api'
 import { Card, SectionCard } from '../components/Card'
+import ChecklistCard from '../components/ChecklistCard'
 import EventsPanel from '../components/EventsPanel'
 import HolidaysPanel from '../components/HolidaysPanel'
 import StatTile from '../components/StatTile'
 import TripMap from '../components/TripMap'
 import WeatherPanel from '../components/WeatherPanel'
-import { db } from '../db'
+import { db, saveSnapshot } from '../db'
+import { checklistProgress, formatProgress } from '../lib/checklist'
 import { daysBetween, formatRange, today } from '../lib/dates'
 import { placeGradient, shortName } from '../lib/style'
 import type { Trip, TripSnapshot } from '../types'
@@ -47,7 +50,8 @@ export default function TripPage() {
       setLoading(true)
       try {
         const snapshot = await fetchSnapshot(t)
-        await db.trips.update(id, { snapshot })
+        // Also merges new weather-based checklist suggestions without touching user edits.
+        await saveSnapshot(id, snapshot)
       } finally {
         setLoading(false)
       }
@@ -78,6 +82,13 @@ export default function TripPage() {
 
   const snap = trip.snapshot
   const nights = daysBetween(trip.startDate, trip.endDate)
+  const isForecast = !!snap && snap.weather.ok && snap.weather.data.kind === 'forecast'
+  const checklist = (
+    <div id="checklist" className="scroll-mt-24">
+      {/* While data loads we don't know yet whether a forecast exists, so hide the "no forecast" note. */}
+      <ChecklistCard trip={{ ...trip, id }} hasForecast={!snap || isForecast} />
+    </div>
+  )
 
   return (
     <>
@@ -108,18 +119,34 @@ export default function TripPage() {
             <Chip icon={CalendarDays}>{formatRange(trip.startDate, trip.endDate)}</Chip>
             <Chip icon={Clock}>{countdown(trip)}</Chip>
             <Chip icon={Route}>from {shortName(trip.origin)}</Chip>
+            {/* Packing progress doubles as a shortcut to the checklist */}
+            <button
+              type="button"
+              onClick={() => document.getElementById('checklist')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className="flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 font-medium text-ink ring-1 ring-white/15 hover:bg-white focus-visible:outline-2 focus-visible:outline-white"
+            >
+              <ListChecks className="size-4" />
+              {formatProgress(checklistProgress(trip.checklist))}
+            </button>
           </div>
         </div>
       </section>
 
       <div className="relative mx-auto -mt-16 max-w-6xl space-y-6 px-4 pb-16 sm:px-6">
-        {!snap ? <LoadingState /> : <Dashboard trip={trip} snap={snap} nights={nights} />}
+        {!snap ? (
+          <>
+            <LoadingState />
+            {checklist}
+          </>
+        ) : (
+          <Dashboard trip={trip} snap={snap} nights={nights} checklist={checklist} />
+        )}
       </div>
     </>
   )
 }
 
-function Dashboard({ trip, snap, nights }: { trip: Trip; snap: TripSnapshot; nights: number }) {
+function Dashboard({ trip, snap, nights, checklist }: { trip: Trip; snap: TripSnapshot; nights: number; checklist: React.ReactNode }) {
   const days = snap.weather.ok ? snap.weather.data.days : []
   const avgHigh = days.length ? days.reduce((sum, d) => sum + d.tempMax, 0) / days.length : null
 
@@ -172,6 +199,9 @@ function Dashboard({ trip, snap, nights }: { trip: Trip; snap: TripSnapshot; nig
       >
         {(weather) => <WeatherPanel weather={weather} />}
       </SectionCard>
+
+      {/* New row below Weather (transportation joins it in phase 3) */}
+      {checklist}
 
       <SectionCard title="Events nearby" icon={Ticket} subtitle="From Ticketmaster" section={snap.events}>
         {(events) => <EventsPanel events={events} />}
