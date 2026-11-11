@@ -1,10 +1,11 @@
+// Ticketmaster event cards (FR-7): name, date, venue, category, image and an external ticket link.
 import { ArrowUpRight, CalendarX, MapPin, Ticket } from 'lucide-react'
 import { formatShort, formatWeekday } from '../lib/dates'
 import type { EventItem } from '../types'
 import { EmptyState } from './Card'
 
 export default function EventsPanel({ events }: { events: EventItem[] }) {
-  if (events.length === 0) return <EmptyState icon={CalendarX}>No events found within 50 km for these dates.</EmptyState>
+  if (events.length === 0) return <EmptyState icon={CalendarX}>No Ticketmaster events found within 50 km of your destination on your trip dates.</EmptyState>
 
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -16,7 +17,7 @@ export default function EventsPanel({ events }: { events: EventItem[] }) {
             rel="noreferrer"
             className="group flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-white transition hover:-translate-y-0.5 hover:shadow-xl"
           >
-            <div className="relative aspect-video bg-gradient-to-br from-cyan-700 to-indigo-900">
+            <div className="relative aspect-video bg-gradient-to-br from-accent to-ink">
               {e.image ? (
                 <img src={e.image} alt="" loading="lazy" className="size-full object-cover" />
               ) : (

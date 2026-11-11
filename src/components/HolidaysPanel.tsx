@@ -1,3 +1,4 @@
+// Public holidays on the trip dates (FR-8). Nationwide holidays are plain; regional ones get a badge.
 import { PartyPopper } from 'lucide-react'
 import { formatShort, formatWeekday } from '../lib/dates'
 import type { Holiday } from '../types'
@@ -20,11 +21,18 @@ export default function HolidaysPanel({ holidays }: { holidays: Holiday[] }) {
           <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
             {formatWeekday(h.date)} · {formatShort(h.date)}
           </div>
-          <div className="font-semibold text-ink">{h.name}</div>
+          <div className="flex flex-wrap items-center gap-2 font-semibold text-ink">
+            {h.name}
+            {h.regional && (
+              <span className="rounded-full bg-paper px-2 py-0.5 text-xs font-medium text-ink-soft ring-1 ring-line">
+                Some regions only
+              </span>
+            )}
+          </div>
           {h.localName !== h.name && <div className="text-sm text-ink-muted">{h.localName}</div>}
         </li>
       ))}
-      <li className="text-xs text-ink-muted">Shops, banks and transit may run on reduced schedules.</li>
+      <li className="text-sm text-ink-muted">Shops, banks and transit may run on reduced schedules.</li>
     </ol>
   )
 }

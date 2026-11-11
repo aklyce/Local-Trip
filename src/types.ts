@@ -40,17 +40,42 @@ export interface Holiday {
   date: string
   localName: string
   name: string
+  /** true = only observed in some states/regions (Nager.Date `global: false`). */
+  regional?: boolean
 }
 
-/** Each section can fail independently, so one broken API doesn't blank the dashboard. */
-export type Section<T> = { ok: true; data: T } | { ok: false; error: string }
+/** Driving route from OSRM, or an explicit "no road route" result (FR-12). */
+export type RouteResult =
+  | {
+      kind: 'route'
+      distanceKm: number
+      durationMin: number
+      /** Simplified road geometry as [lat, lon] pairs, for the map. */
+      geometry: [number, number][]
+    }
+  | { kind: 'none' }
+
+/**
+ * Cached state of one external service (FR-10, FR-11). Services load and fail independently,
+ * so one broken API never blanks the dashboard.
+ * `data` is the last *successful* result and survives a later failed refresh (then it is stale).
+ */
+export interface ServiceState<T> {
+  /** Outcome of the most recent attempt. */
+  status: 'ok' | 'error' | 'timeout' | 'unconfigured'
+  data?: T
+  /** When `data` was fetched (ms since epoch). */
+  fetchedAt?: number
+  error?: string
+}
+
+export type ServiceKey = 'weather' | 'events' | 'holidays' | 'route'
 
 export interface TripSnapshot {
-  weather: Section<WeatherResult>
-  events: Section<EventItem[]>
-  holidays: Section<Holiday[]>
-  distanceKm: number
-  fetchedAt: number
+  weather?: ServiceState<WeatherResult>
+  events?: ServiceState<EventItem[]>
+  holidays?: ServiceState<Holiday[]>
+  route?: ServiceState<RouteResult>
 }
 
 /** One packing/preparation item (FR-15 to FR-18). */

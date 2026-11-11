@@ -68,7 +68,7 @@ export default function App() {
             </Routes>
           </main>
           <footer className="border-t border-line py-6 text-center text-sm text-ink-muted">
-            Local Trip · INFO 253A Group 8 · Data from Photon, Open-Meteo, Ticketmaster &amp; Nager.Date
+            Local Trip · INFO 253A Group 8 · Data from Photon, Open-Meteo, Ticketmaster, Nager.Date &amp; OSRM
           </footer>
         </div>
         <PlanTripDialog request={planRequest} onClose={() => setPlanRequest(null)} />

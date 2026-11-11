@@ -25,9 +25,9 @@ User enters origin, destination and dates → gets a trip dashboard (weather, ev
 
 ## Discovery redesign (PRD v2, in progress on `feature/discovery-redesign`)
 
-Angel's PRD v2 ("Local Trip — Discovery Redesign") + prototype (https://local-trip-discover-angel.aklyce.chatgpt.site/) are the target design. Approach: keep this repo's APIs, `Section<T>`, Dexie, Recharts chart and Leaflet map; port the prototype's look, Discover page and shared plan dialog; add checklist and transport.
+Angel's PRD v2 ("Local Trip — Discovery Redesign") + prototype (https://local-trip-discover-angel.aklyce.chatgpt.site/) are the target design. Approach: keep this repo's APIs, per-service card states, Dexie, Recharts chart and Leaflet map; port the prototype's look, Discover page and shared plan dialog; add checklist and transport.
 
-- Phases: 0 tokens/fonts + baseline commit (done) → 1 Discover + `PlanTripDialog` (done; photos still missing in `public/images/`, cards fall back to gradients) → 2 checklist (Dexie v2) (done; rules in `src/lib/checklist.ts`, writes via `saveSnapshot`/`editTrip` in `src/db.ts` so refresh never overwrites edits) → 3 dashboard restyle, per-service stale snapshots, 10 s timeouts, transport, history → 4 strict TS, responsive/keyboard checks, scope freeze Nov 22.
+- Phases: 0 tokens/fonts + baseline commit (done) → 1 Discover + `PlanTripDialog` (done; photos still missing in `public/images/`, cards fall back to gradients) → 2 checklist (Dexie v2) (done; rules in `src/lib/checklist.ts`, writes via `saveSnapshot`/`editTrip` in `src/db.ts` so refresh never overwrites edits) → 3 dashboard restyle, per-service stale snapshots, 10 s timeouts, transport, history (done) → 4 strict TS, responsive/keyboard checks, scope freeze Nov 22.
 - Proposed defaults (team still to confirm): keep numeric `++id` (no UUID migration); Discover = 6 curated California places, origin fixed to Berkeley; keep `VITE_TICKETMASTER_KEY` in the browser and say so in README; owners unassigned.
 - Visual tokens live in `src/index.css` `@theme` (PRD VIS-2 palette, Libre Caslon Display + DM Sans). Use token classes, not hex values.
 
@@ -35,17 +35,16 @@ Angel's PRD v2 ("Local Trip — Discovery Redesign") + prototype (https://local-
 
 - **No login / backend.** Not required; Dexie (IndexedDB) satisfies persistence. If ever revisited: Supabase Auth (P2).
 - **Checklist (FR-15 to FR-18):** done in phase 2. Removed suggestions are remembered in `dismissedSuggestions`.
-- **P1:** transportation card (FR-12 to FR-14): OSRM driving time/distance, flight estimate (distance ÷ 800 km/h + 2 h) when driving > 8 h, Google Flights and Rome2Rio links.
+- **Transportation (FR-12 to FR-14):** done in phase 3. OSRM snaps unreachable cities onto another continent's roads, so `route.ts` treats a snap > 25 km as "no road route". Google Flights prefills dates via its `q=` search; Rome2Rio can't.
 - **P2 / deferred:** nearby attractions (OpenTripMap), WebLLM trip variants (needs WebGPU, too risky to demo), user reviews.
 - New dashboard row (checklist + transportation) goes below the Weather card; existing layout stays.
-- Dexie is at `version(2)` (checklist). Adding `snapshot.route` needs no index change; bump the version only if an upgrade must rewrite old trips.
 
 ## Stack and conventions
 
 - Vite + React 19 + TypeScript, Tailwind CSS v4, React Router (hash routing for GitHub Pages), Dexie, Recharts, Leaflet, lucide-react.
-- One module per external API in `src/api/`; `fetchSnapshot()` in `src/api/index.ts` calls them in parallel.
-- Each dashboard section is a `Section<T>` (`{ ok, data } | { ok: false, error }`) so one failing API never blanks the page. Keep this pattern for new cards.
-- API results are cached on the trip as `snapshot`; "Refresh data" refetches.
+- One module per external API in `src/api/` (weather, events, holidays, route = OSRM, geocode). `fetchService(key, trip)` in `src/api/index.ts` runs one with a 10 s timeout; `useTripServices` loads them independently and `saveService` in `src/db.ts` stores each result.
+- Each service is cached on `trip.snapshot[key]` as a `ServiceState<T>` (`status`, last successful `data`, `fetchedAt`, `error`). A failed refresh keeps old data and the card shows it as stale. Render new cards with `ServiceCard`. Missing API keys throw `ConfigError` → `unconfigured` (neutral message).
+- Dexie is at `version(3)` (v3 converted old `{ ok, data }` snapshots).
 - Code must be well commented (course Part III): short header comment per API module and page.
 - Before saying work is done: `npm run build` and `npm run lint` must pass.
 - Note: `tsconfig.app.json` does not set `strict` yet, although PRD NFR-6 expects strict mode.

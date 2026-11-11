@@ -1,7 +1,9 @@
-import type { EventItem, Place } from '../types'
-
+// Events from the Ticketmaster Discovery API, filtered to the destination (50 km) and exact trip dates (FR-7).
 // https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/
 // Needs VITE_TICKETMASTER_KEY in .env. Note: anything prefixed VITE_ ends up in the client bundle.
+// No key → ConfigError, so the card can say "not configured" instead of showing a failure.
+import type { EventItem, Place } from '../types'
+import { ConfigError } from './errors'
 const DISCOVERY_URL = 'https://app.ticketmaster.com/discovery/v2/events.json'
 
 interface TmEvent {
@@ -21,9 +23,9 @@ function pickImage(images: TmEvent['images']): string | undefined {
   return (wide.find((i) => i.width >= 500) ?? wide.at(-1) ?? images[0]).url
 }
 
-export async function getEvents(place: Place, startDate: string, endDate: string): Promise<EventItem[]> {
+export async function getEvents(place: Place, startDate: string, endDate: string, signal?: AbortSignal): Promise<EventItem[]> {
   const apiKey = import.meta.env.VITE_TICKETMASTER_KEY
-  if (!apiKey) throw new Error('Missing VITE_TICKETMASTER_KEY (see .env.example)')
+  if (!apiKey) throw new ConfigError('Event listings need a Ticketmaster API key (VITE_TICKETMASTER_KEY in .env).')
 
   const url = new URL(DISCOVERY_URL)
   url.searchParams.set('apikey', apiKey)
@@ -35,7 +37,7 @@ export async function getEvents(place: Place, startDate: string, endDate: string
   url.searchParams.set('sort', 'date,asc')
   url.searchParams.set('size', '20')
 
-  const res = await fetch(url)
+  const res = await fetch(url, { signal })
   if (!res.ok) throw new Error(`Ticketmaster error ${res.status}`)
   const json: { _embedded?: { events: TmEvent[] } } = await res.json()
 

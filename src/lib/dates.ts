@@ -16,10 +16,12 @@ export function addDays(iso: string, days: number): string {
   return toISODate(d)
 }
 
+/** Same calendar date in another year. Feb 29 maps to Feb 28 when the target year has no leap day. */
 export function shiftYears(iso: string, years: number): string {
-  const d = parse(iso)
-  d.setFullYear(d.getFullYear() + years)
-  return toISODate(d)
+  const [y, m, day] = iso.split('-').map(Number)
+  const targetYear = y + years
+  const lastDay = new Date(targetYear, m, 0).getDate() // day 0 of next month = last day of this month
+  return toISODate(new Date(targetYear, m - 1, Math.min(day, lastDay)))
 }
 
 export function today(): string {
@@ -44,4 +46,9 @@ export function formatWeekday(iso: string): string {
 /** "Nov 2 – Nov 6, 2026" */
 export function formatRange(start: string, end: string): string {
   return `${formatShort(start)} – ${formatShort(end)}, ${end.slice(0, 4)}`
+}
+
+/** "Nov 10, 10:30 PM" — when cached data was fetched. */
+export function formatUpdated(ms: number): string {
+  return new Date(ms).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }

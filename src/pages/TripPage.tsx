@@ -1,7 +1,14 @@
+// Trip dashboard (#/trip/:id), PRD v2 §4.
+// Header: cities, dates, duration, countdown, packing progress, refresh. Two tabs:
+//  - Overview: stat tiles, map + holidays, weather, transport + checklist, events.
+//  - Packing list (?tab=packing): the checklist on its own.
+// Every external service loads, fails and refreshes on its own (useTripServices), and the
+// checklist only depends on the saved trip, so it works while data loads or after a failure.
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ArrowLeft,
   CalendarDays,
+  Car,
   Clock,
   CloudSun,
   ListChecks,
@@ -9,27 +16,28 @@ import {
   Moon,
   PartyPopper,
   RefreshCw,
-  Route,
+  Ruler,
   Thermometer,
   Ticket,
 } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { fetchSnapshot } from '../api'
-import { Card, SectionCard } from '../components/Card'
+import type { ReactNode } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { haversineKm } from '../api/distance'
+import { Card, ServiceCard } from '../components/Card'
 import ChecklistCard from '../components/ChecklistCard'
 import EventsPanel from '../components/EventsPanel'
 import HolidaysPanel from '../components/HolidaysPanel'
 import StatTile from '../components/StatTile'
-import TripMap from '../components/TripMap'
+import TransportCard from '../components/TransportCard'
+import TripMap, { MapLegend } from '../components/TripMap'
 import WeatherPanel from '../components/WeatherPanel'
-import { db, saveSnapshot } from '../db'
+import { db } from '../db'
 import { checklistProgress, formatProgress } from '../lib/checklist'
 import { daysBetween, formatRange, today } from '../lib/dates'
-import { placeGradient, shortName } from '../lib/style'
-import type { Trip, TripSnapshot } from '../types'
-
-const KM_PER_MILE = 1.609344
+import { shortName } from '../lib/style'
+import { formatDuration, km, mi } from '../lib/transport'
+import { useTripServices } from '../lib/useTripServices'
+import type { ServiceKey, Trip } from '../types'
 
 function countdown(trip: Trip): string {
   const untilStart = daysBetween(today(), trip.startDate)
@@ -39,201 +47,266 @@ function countdown(trip: Trip): string {
   return daysBetween(today(), trip.endDate) >= 0 ? 'Happening now' : 'Past trip'
 }
 
+type Tab = 'overview' | 'packing'
+
 export default function TripPage() {
-  const id = Number(useParams().id)
+  const rawId = useParams().id
+  const id = Number(rawId)
+  const validId = Number.isInteger(id) && id > 0
   // undefined while loading, null if not found
-  const trip = useLiveQuery(async () => (await db.trips.get(id)) ?? null, [id])
-  const [loading, setLoading] = useState(false)
-
-  const refresh = useCallback(
-    async (t: Trip) => {
-      setLoading(true)
-      try {
-        const snapshot = await fetchSnapshot(t)
-        // Also merges new weather-based checklist suggestions without touching user edits.
-        await saveSnapshot(id, snapshot)
-      } finally {
-        setLoading(false)
-      }
-    },
-    [id],
-  )
-
-  // First visit after planning: no cached data yet, so fetch it (once per trip id).
-  const autoFetched = useRef<number | null>(null)
-  useEffect(() => {
-    if (trip && !trip.snapshot && autoFetched.current !== id) {
-      autoFetched.current = id
-      void refresh(trip)
-    }
-  }, [trip, id, refresh])
+  const trip = useLiveQuery(async () => (validId ? ((await db.trips.get(id)) ?? null) : null), [id, validId])
+  const { loading, refresh } = useTripServices(id, trip)
+  const [params, setParams] = useSearchParams()
+  const tab: Tab = params.get('tab') === 'packing' ? 'packing' : 'overview'
+  const setTab = (t: Tab) => setParams(t === 'packing' ? { tab: 'packing' } : {}, { replace: true })
 
   if (trip === undefined) return null
-  if (trip === null) {
-    return (
-      <div className="mx-auto max-w-6xl px-4 py-20 text-center sm:px-6">
-        <p className="text-ink-soft">Trip not found.</p>
-        <Link to="/" className="mt-2 inline-block font-medium text-accent hover:underline">
-          Plan a new one
-        </Link>
-      </div>
-    )
-  }
+  if (trip === null) return <TripNotFound />
 
-  const snap = trip.snapshot
-  const nights = daysBetween(trip.startDate, trip.endDate)
-  const isForecast = !!snap && snap.weather.ok && snap.weather.data.kind === 'forecast'
-  const checklist = (
-    <div id="checklist" className="scroll-mt-24">
-      {/* While data loads we don't know yet whether a forecast exists, so hide the "no forecast" note. */}
-      <ChecklistCard trip={{ ...trip, id }} hasForecast={!snap || isForecast} />
-    </div>
-  )
+  const days = daysBetween(trip.startDate, trip.endDate) + 1
+  const nights = days - 1
+  const progress = checklistProgress(trip.checklist)
+  const busy = loading.size > 0
 
   return (
-    <>
-      {/* Banner */}
-      <section className="relative overflow-hidden text-white" style={{ background: placeGradient(trip.destination.name) }}>
-        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.09)_1px,transparent_1px)] [background-size:22px_22px]" />
-        <div className="absolute -right-24 -top-24 size-96 rounded-full bg-white/10 blur-3xl" />
-        <div className="relative mx-auto max-w-6xl px-4 pb-28 pt-8 sm:px-6">
-          <div className="flex items-center justify-between gap-4">
-            <Link to="/history" className="flex items-center gap-1.5 text-sm text-white/80 hover:text-white">
-              <ArrowLeft className="size-4" /> My trips
-            </Link>
-            <button
-              onClick={() => refresh(trip)}
-              disabled={loading}
-              className="flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-medium ring-1 ring-white/25 backdrop-blur transition hover:bg-white/25 disabled:opacity-60"
-            >
-              <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-              {loading ? 'Updating…' : 'Refresh data'}
-            </button>
-          </div>
-
-          <p className="mt-10 text-sm font-medium uppercase tracking-[0.2em] text-white/70">Trip overview</p>
-          <h1 className="mt-2 font-display text-5xl font-semibold leading-tight sm:text-7xl">{shortName(trip.destination)}</h1>
-          <p className="mt-2 max-w-2xl text-white/75">{trip.destination.name}</p>
-
-          <div className="mt-6 flex flex-wrap gap-2 text-sm">
-            <Chip icon={CalendarDays}>{formatRange(trip.startDate, trip.endDate)}</Chip>
-            <Chip icon={Clock}>{countdown(trip)}</Chip>
-            <Chip icon={Route}>from {shortName(trip.origin)}</Chip>
-            {/* Packing progress doubles as a shortcut to the checklist */}
-            <button
-              type="button"
-              onClick={() => document.getElementById('checklist')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-              className="flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 font-medium text-ink ring-1 ring-white/15 hover:bg-white focus-visible:outline-2 focus-visible:outline-white"
-            >
-              <ListChecks className="size-4" />
-              {formatProgress(checklistProgress(trip.checklist))}
-            </button>
-          </div>
+    <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+      {/* Header */}
+      <header className="pt-8">
+        <div className="flex items-center justify-between gap-4">
+          <Link to="/history" className="flex items-center gap-1.5 text-sm font-medium text-ink-soft hover:text-ink">
+            <ArrowLeft className="size-4" /> My trips
+          </Link>
+          <button
+            type="button"
+            onClick={() => refresh()}
+            disabled={busy}
+            className="flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-sm font-semibold text-ink shadow-sm transition hover:border-accent/40 focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-wait disabled:opacity-60"
+          >
+            <RefreshCw className={`size-4 ${busy ? 'animate-spin motion-reduce:animate-none' : ''}`} />
+            {busy ? 'Updating…' : 'Refresh data'}
+          </button>
         </div>
-      </section>
 
-      <div className="relative mx-auto -mt-16 max-w-6xl space-y-6 px-4 pb-16 sm:px-6">
-        {!snap ? (
-          <>
-            <LoadingState />
-            {checklist}
-          </>
+        <p className="mt-8 text-xs font-semibold uppercase tracking-[0.2em] text-accent">Trip overview</p>
+        <h1 className="mt-3 font-display text-6xl leading-[0.95] text-ink sm:text-7xl">{shortName(trip.destination)}</h1>
+        <p className="mt-3 text-ink-soft">
+          From {shortName(trip.origin)} to {trip.destination.name}
+        </p>
+
+        <div className="mt-5 flex flex-wrap gap-2 text-sm">
+          <Chip icon={CalendarDays}>{formatRange(trip.startDate, trip.endDate)}</Chip>
+          <Chip icon={Moon}>
+            {days} {days === 1 ? 'day' : 'days'} · {nights} {nights === 1 ? 'night' : 'nights'}
+          </Chip>
+          <Chip icon={Clock}>{countdown(trip)}</Chip>
+          <button
+            type="button"
+            onClick={() => setTab('packing')}
+            className="flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1.5 font-semibold text-accent-strong ring-1 ring-accent/20 hover:ring-accent/40 focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            <ListChecks className="size-4" /> {formatProgress(progress)}
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div role="tablist" aria-label="Trip sections" className="mt-8 flex gap-1 border-b border-line">
+          <TabButton selected={tab === 'overview'} onClick={() => setTab('overview')} controls="panel-overview">
+            Overview
+          </TabButton>
+          <TabButton selected={tab === 'packing'} onClick={() => setTab('packing')} controls="panel-packing">
+            Packing list
+            <span className="ml-1.5 rounded-full bg-paper px-1.5 text-xs text-ink-soft ring-1 ring-line">{progress.total}</span>
+          </TabButton>
+        </div>
+      </header>
+
+      <div className="mt-8">
+        {tab === 'overview' ? (
+          <div id="panel-overview" role="tabpanel" aria-label="Overview" className="space-y-6">
+            <Overview trip={trip as Trip & { id: number }} loading={loading} refresh={refresh} />
+          </div>
         ) : (
-          <Dashboard trip={trip} snap={snap} nights={nights} checklist={checklist} />
+          <div id="panel-packing" role="tabpanel" aria-label="Packing list" className="max-w-3xl">
+            <ChecklistCard trip={{ ...trip, id }} hasForecast={hasForecastOrUnknown(trip, loading)} />
+          </div>
         )}
       </div>
-    </>
+    </div>
   )
 }
 
-function Dashboard({ trip, snap, nights, checklist }: { trip: Trip; snap: TripSnapshot; nights: number; checklist: React.ReactNode }) {
-  const days = snap.weather.ok ? snap.weather.data.days : []
-  const avgHigh = days.length ? days.reduce((sum, d) => sum + d.tempMax, 0) / days.length : null
+/** Hide the "no forecast" note until we actually know the weather kind. */
+function hasForecastOrUnknown(trip: Trip, loading: ReadonlySet<ServiceKey>): boolean {
+  const weather = trip.snapshot?.weather?.data
+  return !weather ? loading.has('weather') || !trip.snapshot?.weather : weather.kind === 'forecast'
+}
+
+function Overview({
+  trip,
+  loading,
+  refresh,
+}: {
+  trip: Trip & { id: number }
+  loading: ReadonlySet<ServiceKey>
+  refresh: (keys?: ServiceKey[]) => void
+}) {
+  const snap = trip.snapshot ?? {}
+  const straightKm = haversineKm(trip.origin, trip.destination)
+  const weather = snap.weather?.data
+  const route = snap.route?.data
+  const events = snap.events?.data
+  const avgHigh = weather?.days.length ? weather.days.reduce((sum, d) => sum + d.tempMax, 0) / weather.days.length : null
+  const days = daysBetween(trip.startDate, trip.endDate) + 1
+  const isHistorical = weather?.kind === 'historical'
+  const retry = (key: ServiceKey) => () => refresh([key])
+  const dash = (key: ServiceKey) => (loading.has(key) ? '…' : '–')
 
   return (
     <>
+      {/* Stat tiles. Straight-line and road distance are labeled separately (FR-9). */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
         <StatTile
           hero
-          label="Distance"
-          icon={Route}
+          label="Straight-line distance"
+          icon={Ruler}
           value={
             <>
-              {Math.round(snap.distanceKm).toLocaleString()}
+              {Math.round(straightKm).toLocaleString()}
               <span className="ml-1.5 text-2xl font-medium text-ink-muted">km</span>
             </>
           }
-          detail={`${Math.round(snap.distanceKm / KM_PER_MILE).toLocaleString()} mi as the crow flies`}
+          detail={`${mi(straightKm)} as the crow flies`}
         />
-        <StatTile label="Trip length" icon={Moon} value={nights} detail={nights === 1 ? 'night' : 'nights'} />
+        <StatTile
+          label="Drive"
+          icon={Car}
+          value={route?.kind === 'route' ? formatDuration(route.durationMin) : route?.kind === 'none' ? 'No road' : dash('route')}
+          detail={route?.kind === 'route' ? `${km(route.distanceKm)} by road` : 'by road'}
+        />
+        <StatTile label="Trip length" icon={Moon} value={days} detail={days === 1 ? 'day' : 'days'} />
         <StatTile
           label="Avg. high"
           icon={Thermometer}
-          value={avgHigh === null ? '–' : `${Math.round(avgHigh)}°`}
-          detail={snap.weather.ok && snap.weather.data.kind === 'historical' ? 'last year' : 'forecast'}
+          value={avgHigh === null ? dash('weather') : `${Math.round(avgHigh)}°C`}
+          detail={isHistorical ? 'last year, not a forecast' : 'forecast'}
         />
-        <StatTile label="Events" icon={Ticket} value={snap.events.ok ? snap.events.data.length : '–'} detail="within 50 km" />
-        <StatTile label="Holidays" icon={PartyPopper} value={snap.holidays.ok ? snap.holidays.data.length : '–'} detail="public" />
+        <StatTile label="Events" icon={Ticket} value={events ? events.length : dash('events')} detail="within 50 km" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card title="Route" icon={MapIcon} subtitle={`${shortName(trip.origin)} → ${shortName(trip.destination)}`} className="lg:col-span-2">
+        <Card title="Map" icon={MapIcon} subtitle={`${shortName(trip.origin)} → ${shortName(trip.destination)}`} className="lg:col-span-2">
           <div className="h-80">
-            <TripMap origin={trip.origin} destination={trip.destination} />
+            <TripMap origin={trip.origin} destination={trip.destination} road={route?.kind === 'route' ? route.geometry : undefined} />
           </div>
+          <MapLegend hasRoad={route?.kind === 'route'} />
         </Card>
-        <SectionCard title="Public holidays" icon={PartyPopper} subtitle={trip.destination.countryCode} section={snap.holidays}>
+        <ServiceCard
+          title="Public holidays"
+          icon={PartyPopper}
+          subtitle={`Nationwide holidays in ${trip.destination.countryCode ?? 'this country'}; regional ones are marked`}
+          state={snap.holidays}
+          loading={loading.has('holidays')}
+          onRetry={retry('holidays')}
+        >
           {(holidays) => <HolidaysPanel holidays={holidays} />}
-        </SectionCard>
+        </ServiceCard>
       </div>
 
-      <SectionCard
+      <ServiceCard
         title="Weather"
         icon={CloudSun}
         subtitle={
-          snap.weather.ok && snap.weather.data.kind === 'historical'
-            ? 'Forecast isn’t available this far out — showing the same dates last year'
+          isHistorical
+            ? 'Your dates are beyond the 16-day forecast, so this is last year’s weather for the same dates.'
             : 'Daily forecast for your stay'
         }
-        section={snap.weather}
+        action={
+          isHistorical ? (
+            <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">
+              Historical · not a forecast
+            </span>
+          ) : weather ? (
+            <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent-strong">Forecast</span>
+          ) : undefined
+        }
+        state={snap.weather}
+        loading={loading.has('weather')}
+        onRetry={retry('weather')}
       >
-        {(weather) => <WeatherPanel weather={weather} />}
-      </SectionCard>
+        {(w) => <WeatherPanel weather={w} />}
+      </ServiceCard>
 
-      {/* New row below Weather (transportation joins it in phase 3) */}
-      {checklist}
+      {/* Row below Weather: getting there + packing list */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TransportCard trip={trip} straightKm={straightKm} route={snap.route} loading={loading.has('route')} onRetry={retry('route')} />
+        <ChecklistCard trip={trip} hasForecast={hasForecastOrUnknown(trip, loading)} />
+      </div>
 
-      <SectionCard title="Events nearby" icon={Ticket} subtitle="From Ticketmaster" section={snap.events}>
-        {(events) => <EventsPanel events={events} />}
-      </SectionCard>
-
-      <p className="text-center text-xs text-ink-muted">Data updated {new Date(snap.fetchedAt).toLocaleString()}</p>
+      <ServiceCard
+        title="Events nearby"
+        icon={Ticket}
+        subtitle="Ticketmaster listings within 50 km during your dates"
+        state={snap.events}
+        loading={loading.has('events')}
+        onRetry={retry('events')}
+      >
+        {(list) => <EventsPanel events={list} />}
+      </ServiceCard>
     </>
   )
 }
 
-function Chip({ icon: Icon, children }: { icon: typeof Clock; children: React.ReactNode }) {
+function TabButton({
+  selected,
+  onClick,
+  controls,
+  children,
+}: {
+  selected: boolean
+  onClick: () => void
+  controls: string
+  children: ReactNode
+}) {
   return (
-    <span className="flex items-center gap-1.5 rounded-full bg-black/20 px-3 py-1.5 ring-1 ring-white/15 backdrop-blur">
-      <Icon className="size-4" />
+    <button
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      aria-controls={controls}
+      onClick={onClick}
+      className={`-mb-px flex items-center border-b-2 px-4 py-2.5 text-sm transition focus-visible:outline-2 focus-visible:outline-accent ${
+        selected ? 'border-ink font-semibold text-ink' : 'border-transparent font-medium text-ink-soft hover:text-ink'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function Chip({ icon: Icon, children }: { icon: typeof Clock; children: ReactNode }) {
+  return (
+    <span className="flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-ink-soft">
+      <Icon className="size-4 text-ink-muted" />
       {children}
     </span>
   )
 }
 
-function LoadingState() {
+function TripNotFound() {
   return (
-    <>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
-        {[2, 1, 1, 1, 1].map((span, i) => (
-          <div key={i} className={`h-36 animate-pulse rounded-3xl bg-white ${span === 2 ? 'col-span-2' : ''}`} />
-        ))}
+    <div className="mx-auto max-w-xl px-4 py-24 text-center sm:px-6">
+      <h1 className="font-display text-5xl text-ink">Trip not found.</h1>
+      <p className="mt-4 text-ink-soft">
+        It may have been deleted, or it was saved in a different browser. Trips live only in the browser that created them.
+      </p>
+      <div className="mt-6 flex justify-center gap-3">
+        <Link to="/history" className="rounded-full border border-line bg-white px-5 py-2.5 text-sm font-semibold text-ink hover:bg-paper">
+          My trips
+        </Link>
+        <Link to="/" className="rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-strong">
+          Discover places
+        </Link>
       </div>
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="h-96 animate-pulse rounded-3xl bg-white lg:col-span-2" />
-        <div className="h-96 animate-pulse rounded-3xl bg-white" />
-      </div>
-      <p className="text-center text-sm text-ink-muted">Gathering weather, events and holidays…</p>
-    </>
+    </div>
   )
 }
