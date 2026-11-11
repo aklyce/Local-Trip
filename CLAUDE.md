@@ -23,6 +23,14 @@ User enters origin, destination and dates → gets a trip dashboard (weather, ev
 - 40 of 100 points = the live demo matching the slides. **Reliability beats feature count.**
 - No API keys in the repo. `.env` is gitignored; `VITE_TICKETMASTER_KEY` is shared privately.
 
+## Discovery redesign (PRD v2, in progress on `feature/discovery-redesign`)
+
+Angel's PRD v2 ("Local Trip — Discovery Redesign") + prototype (https://local-trip-discover-angel.aklyce.chatgpt.site/) are the target design. Approach: keep this repo's APIs, `Section<T>`, Dexie, Recharts chart and Leaflet map; port the prototype's look, Discover page and shared plan dialog; add checklist and transport.
+
+- Phases: 0 tokens/fonts + baseline commit (done) → 1 Discover + `PlanTripDialog` (done; photos still missing in `public/images/`, cards fall back to gradients) → 2 checklist (Dexie v2) → 3 dashboard restyle, per-service stale snapshots, 10 s timeouts, transport, history → 4 strict TS, responsive/keyboard checks, scope freeze Nov 22.
+- Proposed defaults (team still to confirm): keep numeric `++id` (no UUID migration); Discover = 6 curated California places, origin fixed to Berkeley; keep `VITE_TICKETMASTER_KEY` in the browser and say so in README; owners unassigned.
+- Visual tokens live in `src/index.css` `@theme` (PRD VIS-2 palette, Libre Caslon Display + DM Sans). Use token classes, not hex values.
+
 ## Decisions already made
 
 - **No login / backend.** Not required; Dexie (IndexedDB) satisfies persistence. If ever revisited: Supabase Auth (P2).

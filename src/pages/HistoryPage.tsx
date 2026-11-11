@@ -5,11 +5,13 @@ import { Link } from 'react-router-dom'
 import { EmptyState } from '../components/Card'
 import { db } from '../db'
 import { daysBetween, formatRange, today } from '../lib/dates'
+import { usePlanTrip } from '../lib/planTrip'
 import { placeGradient, shortName } from '../lib/style'
 
 export default function HistoryPage() {
   const trips = useLiveQuery(() => db.trips.orderBy('createdAt').reverse().toArray(), [])
   const [filter, setFilter] = useState('')
+  const planTrip = usePlanTrip()
 
   if (!trips) return null
 
@@ -38,9 +40,13 @@ export default function HistoryPage() {
               className="w-full bg-transparent text-sm focus:outline-none"
             />
           </label>
-          <Link to="/" className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong">
+          <button
+            type="button"
+            onClick={() => planTrip()}
+            className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong"
+          >
             <Plus className="size-4" /> New
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -50,9 +56,9 @@ export default function HistoryPage() {
             {trips.length === 0 ? (
               <>
                 No trips yet.{' '}
-                <Link to="/" className="font-medium text-accent hover:underline">
+                <button type="button" onClick={() => planTrip()} className="font-medium text-accent hover:underline">
                   Plan your first one
-                </Link>
+                </button>
               </>
             ) : (
               'No trips match your search.'

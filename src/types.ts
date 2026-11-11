@@ -4,6 +4,8 @@ export interface Place {
   lon: number
   /** ISO 3166-1 alpha-2, e.g. "US". Needed for holiday lookups. */
   countryCode?: string
+  /** Optional state/region label, e.g. "California". */
+  region?: string
 }
 
 export interface DailyWeather {
