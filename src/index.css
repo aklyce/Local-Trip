@@ -1,17 +1,21 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Fraunces', ui-serif, Georgia, serif;
+  /* PRD v2 VIS-1: expressive serif for hero headings, readable sans for everything else */
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Libre Caslon Display', ui-serif, Georgia, serif;
 
-  /* Page palette: warm paper background, deep ink text, ocean accent */
-  --color-paper: #f6f4ef;
-  --color-ink: #14213d;
-  --color-ink-soft: #4a5568;
-  --color-ink-muted: #8a94a6;
-  --color-line: #e7e3da;
-  --color-accent: #0e7490;
-  --color-accent-strong: #155e75;
+  /* PRD v2 VIS-2 palette: pale background, white cards, dark ink, restrained muted-blue accent.
+     ink-soft / ink-muted were checked for >= 4.5:1 contrast on paper, white and accent-soft. */
+  --color-paper: #f6f7fb;
+  --color-ink: #171c29;
+  --color-ink-soft: #4b5468;
+  --color-ink-muted: #5f6b80;
+  --color-line: #e0e3e9;
+  --color-accent: #40557c;
+  --color-accent-strong: #2f4163;
+  /* Pale blue fill for selected chips/controls (pair with a text or shape cue, not color alone) */
+  --color-accent-soft: #e8edf7;
   --color-sun: #f59e0b;
 
   /* Chart series (validated categorical slots 1 and 2) */
@@ -24,6 +28,12 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Libre Caslon Display ships only weight 400: never fake-bold it,
+   so existing font-semibold classes on headings render the real face. */
+.font-display {
+  font-synthesis: none;
 }
 
 /* Calendar icon in date inputs picks up the text color */

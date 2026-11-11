@@ -17,8 +17,8 @@ import WeatherIcon from './WeatherIcon'
 
 const HIGH = 'var(--color-series-2)'
 const LOW = 'var(--color-series-1)'
-const GRID = '#ece8e0'
-const AXIS_TICK = { fill: '#8a94a6', fontSize: 12 }
+const GRID = '#e0e3e9'
+const AXIS_TICK = { fill: '#5f6b80', fontSize: 12 }
 
 function ChartTooltip({ active, payload, label, unit }: TooltipContentProps & { unit: string }) {
   if (!active || !payload?.length) return null

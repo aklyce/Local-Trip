@@ -18,11 +18,11 @@ export default function TripMap({ origin, destination }: { origin: Place; destin
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <Polyline positions={[from, to]} pathOptions={{ color: '#0e7490', weight: 3, dashArray: '6 8', lineCap: 'round' }} />
-      <CircleMarker center={from} radius={7} pathOptions={{ color: '#ffffff', weight: 3, fillColor: '#64748b', fillOpacity: 1 }}>
+      <Polyline positions={[from, to]} pathOptions={{ color: '#40557c', weight: 3, dashArray: '6 8', lineCap: 'round' }} />
+      <CircleMarker center={from} radius={7} pathOptions={{ color: '#ffffff', weight: 3, fillColor: '#5f6b80', fillOpacity: 1 }}>
         <Tooltip direction="top" offset={[0, -6]}>From: {origin.name}</Tooltip>
       </CircleMarker>
-      <CircleMarker center={to} radius={9} pathOptions={{ color: '#ffffff', weight: 3, fillColor: '#0e7490', fillOpacity: 1 }}>
+      <CircleMarker center={to} radius={9} pathOptions={{ color: '#ffffff', weight: 3, fillColor: '#40557c', fillOpacity: 1 }}>
         <Tooltip direction="top" offset={[0, -8]} permanent>
           {destination.name.split(',')[0]}
         </Tooltip>
