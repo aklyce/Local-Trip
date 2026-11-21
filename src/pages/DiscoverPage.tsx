@@ -1,19 +1,31 @@
 // Discover (#/) — the entry page (PRD v2 §4, DISC-1 to DISC-5).
 // Editorial hero, filter bar and curated destination cards. Every planning action opens
 // the shared PlanTripDialog; nothing here creates a trip directly.
-import { ArrowRight, Compass, MapPin } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { ArrowRight, Compass, MapPin, Sparkles } from 'lucide-react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import DestinationCard from '../components/DestinationCard'
 import DiscoverFilters from '../components/DiscoverFilters'
 import { DESTINATIONS, DISCOVER_ORIGIN } from '../data/destinations'
 import { filterDestinations, type DiscoverFilters as Filters } from '../lib/discover'
 import { usePlanTrip } from '../lib/planTrip'
+import { groqConfigured } from '../api/groq'
+import { checkSupport } from '../lib/tripParser'
 
 const NO_FILTERS: Filters = { query: '', category: null, maxKm: null }
 
 export default function DiscoverPage() {
   const planTrip = usePlanTrip()
   const [filters, setFilters] = useState<Filters>(NO_FILTERS)
+  const [prompt, setPrompt] = useState('')
+  // Show the free-text box only where a model can run: Groq configured, or a usable WebGPU.
+  const [canAsk, setCanAsk] = useState(groqConfigured)
+  useEffect(() => {
+    let live = true
+    void checkSupport().then((s) => live && setCanAsk(groqConfigured() || s.ok))
+    return () => {
+      live = false
+    }
+  }, [])
   const results = useMemo(() => filterDestinations(DESTINATIONS, DISCOVER_ORIGIN, filters), [filters])
 
   // DISC-5: pick only from what is currently visible, then open the dialog (never auto-create).
@@ -21,6 +33,12 @@ export default function DiscoverPage() {
     if (results.length === 0) return
     const pick = results[Math.floor(Math.random() * results.length)]
     planTrip(pick.place)
+  }
+
+  // Natural-language search: hand the sentence to the plan dialog, which runs WebLLM on it.
+  function askTrip(e: FormEvent) {
+    e.preventDefault()
+    if (prompt.trim()) planTrip(undefined, prompt.trim())
   }
 
   return (
@@ -45,6 +63,32 @@ export default function DiscoverPage() {
           </p>
         </div>
       </section>
+
+      {/* Hidden without usable WebGPU; the filters and "Plan it" links below still work everywhere. */}
+      {canAsk && (
+        <form onSubmit={askTrip} role="search" aria-label="Describe your trip" className="mb-6">
+          <label htmlFor="discover-prompt" className="sr-only">
+            Describe your trip
+          </label>
+          <div className="flex items-center gap-2 rounded-2xl border border-line bg-white p-2 shadow-sm focus-within:border-accent focus-within:ring-3 focus-within:ring-accent/20">
+            <Sparkles className="ml-2 size-5 shrink-0 text-accent" aria-hidden />
+            <input
+              id="discover-prompt"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Tell us your trip: “San Francisco next weekend from LA”"
+              className="min-w-0 flex-1 bg-transparent px-1 py-2 text-base text-ink placeholder:text-ink-muted focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={!prompt.trim()}
+              className="flex shrink-0 items-center gap-1.5 rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-ink/30"
+            >
+              Plan it <ArrowRight className="size-4" />
+            </button>
+          </div>
+        </form>
+      )}
 
       <DiscoverFilters
         filters={filters}

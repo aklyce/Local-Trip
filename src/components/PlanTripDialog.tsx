@@ -10,13 +10,17 @@ import { DISCOVER_ORIGIN } from '../data/destinations'
 import { db } from '../db'
 import { mergeSuggestions, suggestLabels } from '../lib/checklist'
 import { addDays, daysBetween, today } from '../lib/dates'
+import type { ParsedTrip } from '../lib/tripParser'
 import type { Place } from '../types'
 import LocationInput from './LocationInput'
+import TripPromptBox from './TripPromptBox'
 
 export interface PlanRequest {
   /** Changes on every open so the form starts fresh. */
   key: number
   destination?: Place
+  /** Natural-language request typed on Discover; parsed by WebLLM when the form opens. */
+  prompt?: string
 }
 
 interface Props {
@@ -48,12 +52,27 @@ export default function PlanTripDialog({ request, onClose }: Props) {
       onClick={(e) => e.target === e.currentTarget && ref.current?.close()}
       className="m-auto w-[calc(100%-2rem)] max-w-lg overflow-visible rounded-3xl bg-transparent p-0 text-ink backdrop:bg-ink/40"
     >
-      {request && <PlanForm key={request.key} initialDestination={request.destination} onCancel={() => ref.current?.close()} />}
+      {request && (
+        <PlanForm
+          key={request.key}
+          initialDestination={request.destination}
+          initialPrompt={request.prompt}
+          onCancel={() => ref.current?.close()}
+        />
+      )}
     </dialog>
   )
 }
 
-function PlanForm({ initialDestination, onCancel }: { initialDestination?: Place; onCancel: () => void }) {
+function PlanForm({
+  initialDestination,
+  initialPrompt,
+  onCancel,
+}: {
+  initialDestination?: Place
+  initialPrompt?: string
+  onCancel: () => void
+}) {
   const navigate = useNavigate()
   // DISC-4: origin defaults to Berkeley; both cities stay editable.
   const [origin, setOrigin] = useState<Place | null>(DISCOVER_ORIGIN)
@@ -62,6 +81,17 @@ function PlanForm({ initialDestination, onCancel }: { initialDestination?: Place
   const [endDate, setEndDate] = useState(addDays(today(), 9))
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  // Bumped after the text box fills the form, so the city inputs remount and show the new names.
+  const [fillCount, setFillCount] = useState(0)
+
+  // WebLLM result → the same state the user would set by hand. Missing fields stay unchanged.
+  function applyParsed(trip: ParsedTrip) {
+    if (trip.origin) setOrigin(trip.origin)
+    if (trip.destination) setDestination(trip.destination)
+    if (trip.startDate) setStartDate(trip.startDate)
+    if (trip.endDate) setEndDate(trip.endDate)
+    setFillCount((n) => n + 1)
+  }
 
   // FR-2 / FR-3 validation. Dates are local calendar dates (YYYY-MM-DD), so string compare is safe.
   const startInPast = startDate !== '' && startDate < today()
@@ -108,12 +138,16 @@ function PlanForm({ initialDestination, onCancel }: { initialDestination?: Place
       <p className="mt-2 text-sm text-ink-soft">The place, the dates. We’ll bring the details together.</p>
 
       <div className="mt-6 space-y-4">
-        <LocationInput label="Leaving from" value={origin} onChange={setOrigin} />
+        {/* Free-text first: focused on open unless a Discover card already chose the destination. */}
+        <TripPromptBox initialText={initialPrompt} autoFocus={!initialDestination} onParsed={applyParsed} />
+        <LocationInput key={`o${fillCount}`} label="Leaving from" value={origin} onChange={setOrigin} />
         <LocationInput
+          key={`d${fillCount}`}
           label="Heading to"
           value={destination}
           onChange={setDestination}
           placeholder="Where to?"
+          // Focused on open; the trip box takes focus over it once it knows the model can run.
           autoFocus={!initialDestination}
         />
         {sameCity && <p className="text-sm text-rose-700">Origin and destination need to be different places.</p>}

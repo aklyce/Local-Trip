@@ -33,8 +33,9 @@ Open http://localhost:5173. Without a Ticketmaster key everything works; the Eve
 | Variable | Needed for | Notes |
 |---|---|---|
 | `VITE_TICKETMASTER_KEY` | Events card | Free key from developer.ticketmaster.com. **Never commit it.** `.env` is gitignored. |
+| `VITE_GROQ_KEY` | "Describe your trip" search (fast online model) | Optional. Free key from console.groq.com. Without it the search uses the on-device model (WebLLM, needs WebGPU). **Never commit it.** |
 
-Anything prefixed `VITE_` is compiled into the JavaScript bundle, so the key is visible to anyone using the deployed site. That is acceptable for this course demo; a real product would call Ticketmaster through a server-side proxy.
+Anything prefixed `VITE_` is compiled into the JavaScript bundle, so the key is visible to anyone using the deployed site. That is acceptable for this course demo; a real product would call Ticketmaster and Groq through a server-side proxy.
 
 ## APIs and their limits
 
@@ -45,6 +46,8 @@ Anything prefixed `VITE_` is compiled into the JavaScript bundle, so the key is 
 | [Ticketmaster Discovery](https://developer.ticketmaster.com) | Events within 50 km | `VITE_TICKETMASTER_KEY` | 5,000 calls/day on the free tier. |
 | [Nager.Date](https://date.nager.at) | Public holidays | none | Not every country is covered. Regional holidays are flagged. |
 | [OSRM demo server](https://project-osrm.org) | Driving route and time | none | Fair-use demo server, no uptime guarantee. Cities with no road connection show "No road route". |
+| [Groq](https://console.groq.com) | "Describe your trip" → form fields (`qwen/qwen3.8-27b`) | `VITE_GROQ_KEY` | Free tier is rate limited. Users can switch to the on-device model. |
+| [WebLLM](https://webllm.mlc.ai) | Same, on-device (`Qwen2.5-1.5B`) | none | Needs WebGPU (Chrome/Edge; Firefox gets the f32 build or a fallback message). ~1 GB download on first use, then cached. |
 
 Every request has a 10-second timeout. Each service loads and fails on its own, so one broken API never blanks the dashboard.
 
@@ -66,6 +69,7 @@ src/
 │   ├── holidays.ts       Nager.Date
 │   ├── route.ts          OSRM driving route
 │   ├── distance.ts       straight-line distance (no API)
+│   ├── groq.ts           Groq chat completions for the trip search (ConfigError without a key)
 │   └── index.ts          fetchService(): one service, 10 s timeout → ServiceState
 ├── components/         # cards, dialogs, filters, map, checklist, transport
 ├── data/destinations.ts  # curated Discover places

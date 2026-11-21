@@ -15,11 +15,15 @@ interface PhotonFeature {
   }
 }
 
-export async function searchPlaces(query: string, signal?: AbortSignal): Promise<Place[]> {
+/** Photon result layers. Restricting them skips streets/houses ("San Diego Road, Berkeley"). */
+export type PhotonLayer = 'city' | 'locality' | 'district' | 'county' | 'state' | 'country' | 'other'
+
+export async function searchPlaces(query: string, signal?: AbortSignal, layers?: PhotonLayer[]): Promise<Place[]> {
   const url = new URL(PHOTON_URL)
   url.searchParams.set('q', query)
   url.searchParams.set('limit', '5')
   url.searchParams.set('lang', 'en')
+  layers?.forEach((layer) => url.searchParams.append('layer', layer))
 
   const res = await fetch(url, { signal })
   if (!res.ok) throw new Error(`Photon error ${res.status}`)

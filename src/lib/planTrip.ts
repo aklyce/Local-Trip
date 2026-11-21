@@ -3,8 +3,11 @@
 import { createContext, useContext } from 'react'
 import type { Place } from '../types'
 
-/** Open the plan dialog, optionally with a destination preselected. */
-export type OpenPlanTrip = (destination?: Place) => void
+/**
+ * Open the plan dialog, optionally with a destination preselected, or with a natural-language
+ * request ("SF next week") that WebLLM turns into form values.
+ */
+export type OpenPlanTrip = (destination?: Place, prompt?: string) => void
 
 export const PlanTripContext = createContext<OpenPlanTrip>(() => {})
 

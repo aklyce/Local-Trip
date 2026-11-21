@@ -23,7 +23,10 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 
 export default function App() {
   const [planRequest, setPlanRequest] = useState<PlanRequest | null>(null)
-  const openPlan = useCallback((destination?: Place) => setPlanRequest({ key: Date.now(), destination }), [])
+  const openPlan = useCallback(
+    (destination?: Place, prompt?: string) => setPlanRequest({ key: Date.now(), destination, prompt }),
+    [],
+  )
   const tripCount = useLiveQuery(() => db.trips.count(), [])
 
   // HashRouter so deep links work on static hosts like GitHub Pages without rewrite rules.
