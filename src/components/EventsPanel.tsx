@@ -8,6 +8,13 @@ import { formatWeekday } from '../lib/dates'
 import type { EventItem } from '../types'
 import { EmptyState } from './Card'
 
+/** "19:30" → "7:30 PM" (US audience; Ticketmaster gives venue-local 24-hour times). */
+function formatTime12(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number)
+  if (Number.isNaN(h) || Number.isNaN(m)) return hhmm
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
+}
+
 /** "2026-11-27" → { day: 27, month: "Nov" }, read as a local calendar date. */
 function dateParts(iso: string): { day: number; month: string } {
   const [y, m, d] = iso.split('-').map(Number)
@@ -56,7 +63,7 @@ export default function EventsPanel({ events }: { events: EventItem[] }) {
                     {e.time && (
                       <span className="flex shrink-0 items-center gap-1">
                         <Clock className="size-3.5" aria-hidden />
-                        {e.time}
+                        {formatTime12(e.time)}
                       </span>
                     )}
                   </p>

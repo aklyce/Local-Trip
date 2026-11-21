@@ -16,6 +16,7 @@ import {
 } from 'recharts'
 import { describeWeatherCode, weatherKind, type WeatherKind } from '../api/weather'
 import { formatShort, formatWeekday } from '../lib/dates'
+import { mmToIn, toF } from '../lib/transport'
 import type { WeatherResult } from '../types'
 import WeatherIcon from './WeatherIcon'
 
@@ -36,7 +37,7 @@ const TILE: Record<WeatherKind, string> = {
   storm: 'bg-purple-700 text-white',
 }
 
-function ChartTooltip({ active, payload, label, unit }: TooltipContentProps & { unit: string }) {
+function ChartTooltip({ active, payload, label, unit, digits = 0 }: TooltipContentProps & { unit: string; digits?: number }) {
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-xl bg-neutral-950 px-3 py-2 text-body-regular text-white shadow-dropdown">
@@ -46,7 +47,7 @@ function ChartTooltip({ active, payload, label, unit }: TooltipContentProps & { 
           <span className="size-2.5 rounded-full" style={{ background: row.color }} />
           {row.name}
           <span className="ml-auto pl-4 font-semibold text-white tabular-nums">
-            {typeof row.value === 'number' ? Math.round(row.value) : '–'}
+            {typeof row.value === 'number' ? row.value.toFixed(digits) : '–'}
             {unit}
           </span>
         </div>
@@ -59,11 +60,15 @@ export default function WeatherPanel({ weather }: { weather: WeatherResult }) {
   const isForecast = weather.kind === 'forecast'
   const data = weather.days.map((d) => ({
     label: formatShort(d.date),
-    High: d.tempMax,
-    Low: d.tempMin,
-    precip: d.precipitation,
+    High: toF(d.tempMax),
+    Low: toF(d.tempMin),
+    // Forecast: chance of rain (%). Historical: amount, stored in mm and shown in inches.
+    precip: d.precipitation === null ? null : isForecast ? d.precipitation : mmToIn(d.precipitation),
   }))
-  const precipUnit = isForecast ? '%' : ' mm'
+  const precipUnit = isForecast ? '%' : ' in'
+  const precipDigits = isForecast ? 0 : 2
+  /** One precipitation value (raw, as stored) formatted for display. */
+  const showPrecip = (v: number) => (isForecast ? Math.round(v) : mmToIn(v).toFixed(precipDigits))
 
   // Headline facts above each chart: the warmest and the wettest day.
   const warmest = weather.days.reduce((a, b) => (b.tempMax > a.tempMax ? b : a))
@@ -87,16 +92,16 @@ export default function WeatherPanel({ weather }: { weather: WeatherResult }) {
               <WeatherIcon code={d.weatherCode} plain className="size-7" aria-hidden />
             </div>
             <div className="mt-6 font-display text-display-1-bold leading-none tracking-tight tabular-nums">
-              {Math.round(d.tempMax)}°
+              {Math.round(toF(d.tempMax))}°
             </div>
             <div className="mt-2 text-body-medium">
-              Low {Math.round(d.tempMin)}° <span className="sr-only">Celsius</span>
+              Low {Math.round(toF(d.tempMin))}° <span className="sr-only">Fahrenheit</span>
             </div>
             <div className="mt-3 flex items-center justify-between gap-2 border-t border-current/20 pt-3 text-body-regular">
               <span>{describeWeatherCode(d.weatherCode)}</span>
               {d.precipitation !== null && (
                 <span className="tabular-nums">
-                  {Math.round(d.precipitation)}
+                  {showPrecip(d.precipitation)}
                   {precipUnit}
                   <span className="sr-only">{isForecast ? ' chance of rain' : ' of precipitation'}</span>
                 </span>
@@ -107,13 +112,13 @@ export default function WeatherPanel({ weather }: { weather: WeatherResult }) {
       </ol>
 
       <div className="grid gap-5 lg:grid-cols-5">
-        {/* Temperature: two series, so a legend; one axis in °C */}
+        {/* Temperature: two series, so a legend; one axis in °F (data is stored in °C) */}
         <figure className="rounded-3xl bg-background-secondary-default p-5 lg:col-span-3">
           <figcaption className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <div className="text-body-medium text-text-secondary">Temperature (°C)</div>
+              <div className="text-body-medium text-text-secondary">Temperature (°F)</div>
               <div className="font-display text-title-1-semibold tracking-tight text-text-primary">
-                Warmest {formatWeekday(warmest.date)}, {Math.round(warmest.tempMax)}°
+                Warmest {formatWeekday(warmest.date)}, {Math.round(toF(warmest.tempMax))}°
               </div>
             </div>
             <span className="flex gap-4 text-body-regular text-text-secondary">
@@ -137,7 +142,7 @@ export default function WeatherPanel({ weather }: { weather: WeatherResult }) {
                 <CartesianGrid vertical={false} stroke={GRID} strokeDasharray="2 6" />
                 <XAxis dataKey="label" tick={AXIS_TICK} tickLine={false} axisLine={false} interval="preserveStartEnd" />
                 <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} unit="°" allowDecimals={false} />
-                <Tooltip content={(p) => <ChartTooltip {...p} unit="°C" />} cursor={{ stroke: 'var(--color-border-button-hover)' }} />
+                <Tooltip content={(p) => <ChartTooltip {...p} unit="°F" />} cursor={{ stroke: 'var(--color-border-button-hover)' }} />
                 <Area
                   dataKey="High"
                   name="Daily high"
@@ -166,10 +171,10 @@ export default function WeatherPanel({ weather }: { weather: WeatherResult }) {
         {/* Precipitation: a separate chart rather than a second y-axis */}
         <figure className="rounded-3xl bg-background-secondary-default p-5 lg:col-span-2">
           <figcaption className="mb-4">
-            <div className="text-body-medium text-text-secondary">{isForecast ? 'Chance of rain (%)' : 'Precipitation (mm)'}</div>
+            <div className="text-body-medium text-text-secondary">{isForecast ? 'Chance of rain (%)' : 'Precipitation (in)'}</div>
             <div className="font-display text-title-1-semibold tracking-tight text-text-primary">
               {anyRain
-                ? `Wettest ${formatWeekday(wettest.date)}, ${Math.round(wettest.precipitation ?? 0)}${precipUnit}`
+                ? `Wettest ${formatWeekday(wettest.date)}, ${showPrecip(wettest.precipitation ?? 0)}${precipUnit}`
                 : 'Dry all trip'}
             </div>
           </figcaption>
@@ -182,10 +187,11 @@ export default function WeatherPanel({ weather }: { weather: WeatherResult }) {
                   tick={AXIS_TICK}
                   tickLine={false}
                   axisLine={false}
-                  allowDecimals={false}
-                  domain={isForecast ? [0, 100] : [0, 'auto']}
+                  // Inches are small numbers (0.25 in is a wet day), so allow decimals there.
+                  allowDecimals={!isForecast}
+                  domain={isForecast ? [0, 100] : [0, (max: number) => Math.max(0.5, max)]}
                 />
-                <Tooltip content={(p) => <ChartTooltip {...p} unit={precipUnit} />} cursor={false} />
+                <Tooltip content={(p) => <ChartTooltip {...p} unit={precipUnit} digits={precipDigits} />} cursor={false} />
                 <Bar
                   dataKey="precip"
                   name={isForecast ? 'Chance of rain' : 'Precipitation'}
