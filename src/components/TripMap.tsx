@@ -11,7 +11,14 @@ interface Props {
   road?: [number, number][]
 }
 
+// Colours match the app: cobalt route and destination, orange origin (Tailwind blue-600 / orange-500;
+// Leaflet draws on SVG/canvas, so it needs literal values, not CSS classes).
+const COBALT = '#155dfc'
+const ORANGE = '#ff6900'
+const INK = '#0a0a0a'
+
 // CircleMarkers instead of Leaflet's default pin images, which don't resolve under bundlers.
+// The OpenStreetMap tiles are muted to grey in index.css (.trip-map) so the route stands out.
 export default function TripMap({ origin, destination, road }: Props) {
   const from: [number, number] = [origin.lat, origin.lon]
   const to: [number, number] = [destination.lat, destination.lon]
@@ -21,19 +28,23 @@ export default function TripMap({ origin, destination, road }: Props) {
       bounds={[from, to, ...(road ?? [])]}
       boundsOptions={{ padding: [48, 48], maxZoom: 11 }}
       scrollWheelZoom={false}
-      className="h-full min-h-80 w-full rounded-2xl"
+      className="trip-map isolate h-full min-h-80 w-full rounded-2xl"
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <Polyline positions={[from, to]} pathOptions={{ color: '#5f6b80', weight: 2, dashArray: '6 8', lineCap: 'round' }} />
-      {road && <Polyline positions={road} pathOptions={{ color: '#40557c', weight: 4, opacity: 0.85 }} />}
-      <CircleMarker center={from} radius={7} pathOptions={{ color: '#ffffff', weight: 3, fillColor: '#5f6b80', fillOpacity: 1 }}>
-        <Tooltip direction="top" offset={[0, -6]}>From: {origin.name}</Tooltip>
-      </CircleMarker>
-      <CircleMarker center={to} radius={9} pathOptions={{ color: '#ffffff', weight: 3, fillColor: '#40557c', fillOpacity: 1 }}>
+      <Polyline positions={[from, to]} pathOptions={{ color: INK, weight: 2, opacity: 0.55, dashArray: '2 8', lineCap: 'round' }} />
+      {/* White casing under the road so it reads on any tile. */}
+      {road && <Polyline positions={road} pathOptions={{ color: '#ffffff', weight: 8, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }} />}
+      {road && <Polyline positions={road} pathOptions={{ color: COBALT, weight: 4, lineCap: 'round', lineJoin: 'round' }} />}
+      <CircleMarker center={from} radius={8} pathOptions={{ color: '#ffffff', weight: 3, fillColor: ORANGE, fillOpacity: 1 }}>
         <Tooltip direction="top" offset={[0, -8]} permanent>
+          {origin.name.split(',')[0]}
+        </Tooltip>
+      </CircleMarker>
+      <CircleMarker center={to} radius={10} pathOptions={{ color: '#ffffff', weight: 3, fillColor: COBALT, fillOpacity: 1 }}>
+        <Tooltip direction="top" offset={[0, -10]} permanent className="trip-map-destination">
           {destination.name.split(',')[0]}
         </Tooltip>
       </CircleMarker>
@@ -41,17 +52,23 @@ export default function TripMap({ origin, destination, road }: Props) {
   )
 }
 
-/** Small key under the map so the two lines can't be confused. */
+/** Small key under the map so the lines and pins can't be confused. */
 export function MapLegend({ hasRoad }: { hasRoad: boolean }) {
   return (
-    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-ink-muted">
+    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-body-regular text-text-secondary">
+      <span className="flex items-center gap-2">
+        <span className="size-2.5 rounded-full bg-orange-500" /> Start
+      </span>
+      <span className="flex items-center gap-2">
+        <span className="size-2.5 rounded-full bg-accent-600" /> Destination
+      </span>
       {hasRoad && (
         <span className="flex items-center gap-2">
-          <span className="h-1 w-6 rounded-full bg-accent" /> Driving route
+          <span className="h-1 w-6 rounded-full bg-accent-600" /> Driving route
         </span>
       )}
       <span className="flex items-center gap-2">
-        <span className="w-6 border-t-2 border-dashed border-ink-muted" /> Straight line
+        <span className="w-6 border-t-2 border-dotted border-text-primary/60" /> Straight line
       </span>
     </div>
   )

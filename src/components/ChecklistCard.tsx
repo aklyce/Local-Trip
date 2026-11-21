@@ -2,12 +2,20 @@
 // Users tick, add and remove items; every change is saved to IndexedDB immediately and a
 // storage failure is shown in the card. It renders from the trip alone, so it stays usable
 // while API data is loading or after an API fails (FR-11).
-import { AlertCircle, ListChecks, Plus, Sparkles, X } from 'lucide-react'
+import { Check, ListChecks, Plus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { Chip } from '@/components/base/badges/chip'
+import { Button } from '@/components/base/buttons/button'
+import { CloseButton } from '@/components/base/buttons/close-button'
+import { Checkbox } from '@/components/base/checkbox/checkbox'
+import { Input } from '@/components/base/input/input'
+import { cx } from '@/utils/cx'
 import { editTrip } from '../db'
 import { checklistProgress, dismissKey, formatProgress, hasLabel, newItem } from '../lib/checklist'
+import { FIELD } from '../lib/style'
 import type { ChecklistItem, Trip } from '../types'
-import { Card } from './Card'
+import { Card, EmptyState, Notice } from './Card'
+import TopoArt from './TopoArt'
 
 interface Props {
   trip: Trip & { id: number }
@@ -52,101 +60,114 @@ export default function ChecklistCard({ trip, hasForecast }: Props) {
     await save((list) => ({ checklist: [...list, newItem(label, false)] }))
   }
 
-  const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0
+  const allPacked = progress.total > 0 && progress.done === progress.total
+  // One bar segment per item while they stay readable; a long list falls back to one continuous bar.
+  const segmented = progress.total > 0 && progress.total <= 16
 
   return (
-    <Card title="Packing list" icon={ListChecks} subtitle={formatProgress(progress)}>
+    <Card title="Packing list" icon={ListChecks} subtitle="Tick things off as you pack">
+      {/* Progress panel: big count and a thick bar. When everything is ticked it turns cobalt and
+          the contour lines draw in once — the card's one celebratory moment. */}
       <div
-        role="progressbar"
-        aria-label="Packing progress"
-        aria-valuemin={0}
-        aria-valuemax={progress.total}
-        aria-valuenow={progress.done}
-        aria-valuetext={formatProgress(progress)}
-        className="-mt-2 mb-5 h-2 overflow-hidden rounded-full bg-paper"
+        className={cx(
+          'relative isolate mb-5 overflow-hidden rounded-2xl p-4 transition-colors duration-500 sm:p-5',
+          allPacked ? FIELD.trip : 'bg-background-secondary-default text-text-primary',
+        )}
       >
-        <div className="h-full rounded-full bg-accent transition-[width] motion-reduce:transition-none" style={{ width: `${pct}%` }} />
+        {allPacked && <TopoArt seed={`packed ${trip.destination.name}`} peaks={3} rings={10} animate className="-z-10 opacity-35" />}
+        <div className="flex items-end justify-between gap-3">
+          <p aria-hidden className="flex items-baseline gap-2 font-display tabular-nums">
+            <span className="text-display-1-bold leading-none tracking-tight">{progress.done}</span>
+            <span className={cx('text-title-2-semibold', allPacked ? 'text-white/75' : 'text-text-secondary')}>/ {progress.total} packed</span>
+          </p>
+          {allPacked && (
+            <span className="pop-in flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-body-semibold text-accent-700">
+              <Check className="size-4" strokeWidth={3} aria-hidden /> Ready to go
+            </span>
+          )}
+        </div>
+        <div
+          role="progressbar"
+          aria-label="Packing progress"
+          aria-valuemin={0}
+          aria-valuemax={progress.total}
+          aria-valuenow={progress.done}
+          aria-valuetext={formatProgress(progress)}
+          className="mt-4 flex h-3 gap-1"
+        >
+          {segmented ? (
+            items.map((item, i) => (
+              <span
+                key={item.id}
+                className={cx(
+                  'flex-1 rounded-full transition-colors duration-300',
+                  i < progress.done ? (allPacked ? 'bg-white' : 'bg-accent-500') : allPacked ? 'bg-white/25' : 'bg-background-quaternary-default',
+                )}
+              />
+            ))
+          ) : (
+            <span className={cx('flex-1 overflow-hidden rounded-full', allPacked ? 'bg-white/25' : 'bg-background-quaternary-default')}>
+              <span
+                className={cx('block h-full rounded-full transition-[width] duration-300', allPacked ? 'bg-white' : 'bg-accent-500')}
+                style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }}
+              />
+            </span>
+          )}
+        </div>
+        {/* Announced once when the last item is ticked. */}
+        <p aria-live="polite" className="sr-only">
+          {allPacked ? 'Everything is packed. Ready to go.' : ''}
+        </p>
       </div>
 
       {saveError && (
-        <p role="alert" className="mb-4 flex items-start gap-2 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">
-          <AlertCircle className="mt-0.5 size-4 shrink-0" />
+        <Notice tone="error" className="mb-4">
           {saveError}
-        </p>
+        </Notice>
       )}
 
       {items.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-ink-muted">
+        <EmptyState icon={ListChecks} className="py-8">
           Your list is empty. Add the first thing you don’t want to forget.
-        </p>
+        </EmptyState>
       ) : (
-        <ul className="divide-y divide-line">
+        <ul className="divide-y divide-separator-border">
           {items.map((item) => (
-            <li key={item.id} className="group flex items-center gap-3 py-2.5">
-              <input
-                id={`item-${item.id}`}
-                type="checkbox"
-                checked={item.done}
-                onChange={() => void toggle(item)}
-                className="size-5 shrink-0 cursor-pointer accent-accent"
-              />
-              <label
-                htmlFor={`item-${item.id}`}
-                className={`flex-1 cursor-pointer text-[15px] ${item.done ? 'text-ink-muted line-through' : 'text-ink'}`}
-              >
-                {item.label}
-              </label>
+            <li key={item.id} className="flex items-center gap-3 py-2">
+              <Checkbox isSelected={item.done} onChange={() => void toggle(item)} className="min-w-0 flex-1">
+                <span className={item.done ? 'text-text-tertiary line-through' : undefined}>{item.label}</span>
+              </Checkbox>
               {item.auto && (
-                <span className="flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-sm font-medium text-accent-strong">
-                  <Sparkles className="size-3" aria-hidden /> Suggested
-                </span>
+                <Chip color="soft" variant="caption">
+                  Suggested
+                </Chip>
               )}
-              <button
-                type="button"
-                onClick={() => void remove(item)}
-                aria-label={`Remove ${item.label}`}
-                className="grid size-8 shrink-0 place-items-center rounded-full text-ink-muted transition hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-2 focus-visible:outline-accent"
-              >
-                <X className="size-4" />
-              </button>
+              <CloseButton size="sm" onClick={() => void remove(item)} aria-label={`Remove ${item.label}`} />
             </li>
           ))}
         </ul>
       )}
 
-      <form onSubmit={add} className="mt-4">
-        <div className="flex gap-2">
-          <label htmlFor="new-item" className="sr-only">
-            Add an item
-          </label>
-          <input
-            id="new-item"
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value)
-              if (inputError) setInputError(null)
-            }}
-            placeholder="Add an item, e.g. Hiking boots"
-            aria-invalid={!!inputError || undefined}
-            aria-describedby={inputError ? 'new-item-error' : undefined}
-            className="min-w-0 flex-1 rounded-xl border border-line bg-white px-3.5 py-2.5 text-[15px] text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-3 focus:ring-accent/20"
-          />
-          <button
-            type="submit"
-            className="flex items-center gap-1.5 rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            <Plus className="size-4" /> Add
-          </button>
-        </div>
-        {inputError && (
-          <p id="new-item-error" className="mt-1.5 text-sm text-rose-700">
-            {inputError}
-          </p>
-        )}
+      <form onSubmit={add} className="mt-4 flex items-start gap-2">
+        <Input
+          aria-label="Add an item"
+          value={draft}
+          onChange={(value) => {
+            setDraft(value)
+            if (inputError) setInputError(null)
+          }}
+          placeholder="Add an item, e.g. Hiking boots"
+          isInvalid={!!inputError}
+          hint={inputError ?? undefined}
+          className="min-w-0 flex-1"
+        />
+        <Button type="submit" variant="secondary" leadingIcon={Plus}>
+          Add
+        </Button>
       </form>
 
       {!hasForecast && (
-        <p className="mt-4 text-sm text-ink-muted">
+        <p className="mt-4 text-body-regular text-text-tertiary">
           Weather-based suggestions (umbrella, jacket, sunscreen) are added once your trip is within the 16-day forecast.
           Last year’s weather isn’t used for advice.
         </p>

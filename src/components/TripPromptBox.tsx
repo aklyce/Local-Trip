@@ -5,9 +5,15 @@
 // switches to the on-device model (WebLLM) and back. The choice is remembered.
 // If neither can run (no Groq key and no usable WebGPU, e.g. Firefox) the box explains why and
 // the manual form below keeps working.
-import { AlertCircle, Loader2, Sparkles } from 'lucide-react'
+import { AlertCircle, Sparkles } from 'lucide-react'
 import { useEffect, useEffectEvent, useRef, useState, type KeyboardEvent } from 'react'
+import { Button } from '@/components/base/buttons/button'
+import { LinkButton } from '@/components/base/buttons/link-button'
+import { ProgressBar } from '@/components/base/progress/progress'
+import { SpinnerGlyph } from '@/components/base/spinner/spinner'
+import { Textarea } from '@/components/base/textarea/textarea'
 import { groqConfigured } from '../api/groq'
+import { Notice } from './Card'
 import {
   checkSupport,
   describeError,
@@ -107,89 +113,81 @@ export default function TripPromptBox({ initialText = '', autoFocus, onParsed }:
   if (engine === 'local' && support === null) return null
   if (!supported) {
     return (
-      <p className="flex items-start gap-2 rounded-xl bg-paper p-3 text-sm text-ink-soft">
-        <Sparkles className="mt-0.5 size-4 shrink-0 text-accent" />
-        <span>
-          {support && !support.ok ? support.reason : 'Describing your trip in words isn’t available here.'} Fill in the
-          form below instead.
-          {hasGroq && (
-            <>
-              {' '}
-              <EngineLink onClick={() => switchEngine('groq')}>Use the online model instead</EngineLink>
-            </>
-          )}
-        </span>
-      </p>
+      <Notice icon={Sparkles}>
+        {support && !support.ok ? support.reason : 'Describing your trip in words isn’t available here.'} Fill in the form
+        below instead.
+        {hasGroq && (
+          <>
+            {' '}
+            <EngineLink onClick={() => switchEngine('groq')}>Use the online model instead</EngineLink>
+          </>
+        )}
+      </Notice>
     )
   }
 
   return (
     // A <div> with its own submit handling, because this sits inside the plan <form> (no nested forms).
-    <div role="search" aria-label="Describe your trip" className="rounded-2xl border border-line bg-paper p-3">
-      <label htmlFor="trip-prompt" className="flex items-center gap-1.5 text-sm font-medium text-ink">
-        <Sparkles className="size-4 text-accent" /> Describe your trip
-      </label>
-      <div className="mt-2 flex items-end gap-2">
-        <textarea
-          id="trip-prompt"
+    <div role="search" aria-label="Describe your trip" className="rounded-2xl bg-background-secondary-default p-3">
+      <div className="flex items-end gap-2">
+        <Textarea
           ref={textareaRef}
+          label="Describe your trip"
           rows={2}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={setText}
           onKeyDown={onKeyDown}
           placeholder="I want to go to SF next week from LA for 3 days"
-          className="min-h-[3.25rem] w-full resize-none rounded-xl border border-line bg-white px-3.5 py-2.5 text-base text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-3 focus:ring-accent/20"
+          className="min-w-0 flex-1"
         />
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={() => void run(text)}
           disabled={busy || !text.trim()}
-          className="flex shrink-0 items-center gap-1.5 rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white hover:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-ink/30"
+          leadingIcon={busy ? BusyGlyph : Sparkles}
         >
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
           Fill in
-        </button>
+        </Button>
       </div>
 
-      <div aria-live="polite" className="text-sm">
+      <div aria-live="polite" className="text-body-regular">
         {status.kind === 'loading' && (
-          <div className="mt-2">
-            <p className="text-ink-muted">
-              Loading the on-device model (first time only, about 1 GB)… {Math.round(status.progress * 100)}%
-            </p>
-            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line">
-              <div className="h-full bg-accent transition-all" style={{ width: `${status.progress * 100}%` }} />
-            </div>
-          </div>
+          <ProgressBar
+            className="mt-3"
+            size="sm"
+            label="Loading the on-device model (first time only, about 1 GB)…"
+            showValueLabel
+            value={Math.round(status.progress * 100)}
+          />
         )}
-        {status.kind === 'thinking' && <p className="mt-2 text-ink-muted">Reading your trip…</p>}
+        {status.kind === 'thinking' && <p className="mt-2 text-text-secondary">Reading your trip…</p>}
         {status.kind === 'done' && (
           <>
-            <p className="mt-2 text-ink-soft">Filled in below. Check the details, then save.</p>
+            <p className="mt-2 text-text-secondary">Filled in below. Check the details, then save.</p>
             {status.warnings.map((w) => (
-              <p key={w} className="mt-1 flex items-start gap-1.5 text-amber-800">
-                <AlertCircle className="mt-0.5 size-4 shrink-0" /> {w}
+              <p key={w} className="mt-1 flex items-start gap-1.5 text-status-yellow-text">
+                <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden /> {w}
               </p>
             ))}
           </>
         )}
         {status.kind === 'error' && (
-          <p role="alert" className="mt-2 flex items-start gap-1.5 text-rose-700">
-            <AlertCircle className="mt-0.5 size-4 shrink-0" /> {status.message}
+          <p role="alert" className="mt-2 flex items-start gap-1.5 text-text-error-primary">
+            <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden /> {status.message}
           </p>
         )}
       </div>
 
-      {/* Engine switch: quiet gray text, only when the other engine can actually run. */}
+      {/* Engine switch: quiet link, only when the other engine can actually run. */}
       {engine === 'groq' && localOk && (
-        <p className="mt-2 text-sm">
+        <p className="mt-2">
           <EngineLink onClick={() => switchEngine('local')} disabled={busy}>
             Use on-device model instead
           </EngineLink>
         </p>
       )}
       {engine === 'local' && hasGroq && (
-        <p className="mt-2 text-sm">
+        <p className="mt-2">
           <EngineLink onClick={() => switchEngine('groq')} disabled={busy}>
             Use the faster online model instead
           </EngineLink>
@@ -199,16 +197,15 @@ export default function TripPromptBox({ initialText = '', autoFocus, onParsed }:
   )
 }
 
-/** Gray, underline-on-hover text button for switching engines. */
+function BusyGlyph({ className }: { className?: string }) {
+  return <SpinnerGlyph size="sm" className={`${className ?? ''} text-current`} />
+}
+
+/** Quiet text button for switching engines. */
 function EngineLink({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: string }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="text-ink-muted underline-offset-2 hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
-    >
+    <LinkButton variant="secondary" onClick={onClick} disabled={disabled}>
       {children}
-    </button>
+    </LinkButton>
   )
 }

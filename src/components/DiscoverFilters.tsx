@@ -1,8 +1,15 @@
-// Discover filter bar (PRD v2 VIS-5): search, category chips, distance and Surprise me
-// in one region. Selected chips get a pale fill *and* a check mark, not color alone.
-import { Check, Search, Shuffle, X } from 'lucide-react'
+// Discover filter bar (PRD v2 VIS-5): search, category, distance and Surprise me in one row,
+// BoardUI SearchField, Select and Button, plus category pills (React Aria ToggleButtonGroup)
+// coloured like the destination cards.
+import { Check, Shuffle } from 'lucide-react'
+import { ToggleButton, ToggleButtonGroup } from 'react-aria-components'
+import { Button } from '@/components/base/buttons/button'
+import { SearchField } from '@/components/base/search-field/search-field'
+import { Select, SelectItem } from '@/components/base/select/select'
+import { cx } from '@/utils/cx'
 import { CATEGORY_LABELS, type DestinationCategory } from '../data/destinations'
 import { DISTANCE_OPTIONS, type DiscoverFilters as Filters } from '../lib/discover'
+import { FIELD } from '../lib/style'
 
 interface Props {
   filters: Filters
@@ -11,83 +18,80 @@ interface Props {
   surpriseDisabled: boolean
 }
 
-const CATEGORIES: (DestinationCategory | null)[] = [null, 'city', 'water', 'outdoors']
+const CATEGORIES = ['city', 'water', 'outdoors'] as const satisfies readonly DestinationCategory[]
+
+// Dot shown on an unselected pill: the card colour of that category.
+const DOT: Record<DestinationCategory, string> = { city: 'bg-orange-500', water: 'bg-cyan-500', outdoors: 'bg-emerald-500' }
 
 export default function DiscoverFilters({ filters, onChange, onSurprise, surpriseDisabled }: Props) {
   const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch })
 
   return (
-    <div
-      role="search"
-      aria-label="Filter destinations"
-      className="grid gap-3 rounded-3xl border border-line bg-white p-3 shadow-[0_1px_2px_rgba(23,28,41,0.04)] lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] lg:items-center"
-    >
-      <label className="relative block">
-        <span className="sr-only">Search destinations</span>
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
-        <input
-          type="search"
-          value={filters.query}
-          onChange={(e) => set({ query: e.target.value })}
-          placeholder="Search by city, scenery, or vibe"
-          className="w-full rounded-2xl border border-line bg-paper py-3 pl-10 pr-10 text-base text-ink placeholder:text-ink-muted focus:border-accent focus:bg-white focus:outline-none focus:ring-3 focus:ring-accent/20 [&::-webkit-search-cancel-button]:hidden"
-        />
-        {filters.query && (
-          <button
-            type="button"
-            onClick={() => set({ query: '' })}
-            aria-label="Clear search"
-            className="absolute right-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-ink-muted hover:bg-line/60 hover:text-ink"
-          >
-            <X className="size-4" />
-          </button>
-        )}
-      </label>
-
-      <div role="group" aria-label="Category" className="flex flex-wrap gap-1.5">
-        {CATEGORIES.map((c) => {
-          const selected = filters.category === c
-          return (
-            <button
-              key={c ?? 'all'}
-              type="button"
-              aria-pressed={selected}
-              onClick={() => set({ category: c })}
-              className={`flex items-center gap-1 rounded-full border px-3.5 py-2 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent ${
-                selected ? 'border-accent/30 bg-accent-soft text-accent-strong' : 'border-transparent text-ink-soft hover:bg-paper hover:text-ink'
-              }`}
-            >
-              {selected && <Check className="size-3.5" aria-hidden />}
-              {c ? CATEGORY_LABELS[c] : 'All'}
-            </button>
-          )
-        })}
-      </div>
-
-      <label className="block">
-        <span className="sr-only">Distance from Berkeley</span>
-        <select
-          value={filters.maxKm ?? ''}
-          onChange={(e) => set({ maxKm: e.target.value ? Number(e.target.value) : null })}
-          className="w-full rounded-2xl border border-line bg-white px-3.5 py-2.5 text-sm font-medium text-ink focus:border-accent focus:outline-none focus:ring-3 focus:ring-accent/20 lg:w-auto"
+    <div role="search" aria-label="Filter destinations" className="flex flex-col gap-3 lg:flex-row lg:items-center">
+      <SearchField
+        aria-label="Search destinations"
+        placeholder="Search by city, scenery, or vibe"
+        value={filters.query}
+        onChange={(query) => set({ query })}
+        className="min-w-0 flex-1"
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Category pills in the same colours as the cards. One is always selected; the chosen
+            one is filled and gets a check mark, so it doesn't rely on colour alone. */}
+        <ToggleButtonGroup
+          aria-label="Category"
+          selectionMode="single"
+          disallowEmptySelection
+          selectedKeys={[filters.category ?? 'all']}
+          onSelectionChange={(keys) => {
+            const key = [...keys][0]
+            set({ category: key === undefined || key === 'all' ? null : (key as DestinationCategory) })
+          }}
+          className="flex flex-wrap gap-2"
         >
-          <option value="">Any distance</option>
-          {DISTANCE_OPTIONS.map((km) => (
-            <option key={km} value={km}>
-              Under {km} km
-            </option>
+          {(['all', ...CATEGORIES] as const).map((c) => (
+            <ToggleButton
+              key={c}
+              id={c}
+              className={({ isSelected, isFocusVisible, isHovered }) =>
+                cx(
+                  'flex h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-body-medium outline-none transition-colors',
+                  isSelected
+                    ? cx('border-transparent text-body-semibold', c === 'all' ? 'bg-neutral-950 text-white' : FIELD[c])
+                    : cx('border-border-button-default bg-background-primary-default text-text-primary', isHovered && 'border-border-button-hover'),
+                  isFocusVisible && 'ring-2 ring-border-focus-ring ring-offset-2',
+                )
+              }
+            >
+              {({ isSelected }) => (
+                <>
+                  {isSelected ? (
+                    <Check className="size-4" aria-hidden />
+                  ) : (
+                    c !== 'all' && <span className={cx('size-2.5 rounded-full', DOT[c])} aria-hidden />
+                  )}
+                  {c === 'all' ? 'All' : CATEGORY_LABELS[c]}
+                </>
+              )}
+            </ToggleButton>
           ))}
-        </select>
-      </label>
-
-      <button
-        type="button"
-        onClick={onSurprise}
-        disabled={surpriseDisabled}
-        className="flex items-center justify-center gap-2 rounded-2xl bg-ink px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-ink/30"
-      >
-        <Shuffle className="size-4" /> Surprise me
-      </button>
+        </ToggleButtonGroup>
+        <Select
+          aria-label="Distance from Berkeley"
+          selectedKey={filters.maxMi === null ? 'any' : String(filters.maxMi)}
+          onSelectionChange={(key) => set({ maxMi: key === null || key === 'any' ? null : Number(key) })}
+        >
+          <SelectItem id="any">Any distance</SelectItem>
+          {DISTANCE_OPTIONS.map((miles) => (
+            <SelectItem key={miles} id={String(miles)}>
+              Under {miles} mi
+            </SelectItem>
+          ))}
+        </Select>
+        <Button variant="secondary" leadingIcon={Shuffle} onClick={onSurprise} disabled={surpriseDisabled}>
+          Surprise me
+        </Button>
+      </div>
     </div>
   )
 }

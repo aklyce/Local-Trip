@@ -13,18 +13,19 @@ const ICONS = {
 }
 
 const COLORS = {
-  clear: 'text-amber-500',
-  partly: 'text-amber-500',
-  cloudy: 'text-slate-400',
-  fog: 'text-slate-400',
-  drizzle: 'text-sky-500',
-  rain: 'text-sky-600',
+  clear: 'text-yellow-500',
+  partly: 'text-yellow-500',
+  cloudy: 'text-foreground-icon-tertiary',
+  fog: 'text-foreground-icon-tertiary',
+  drizzle: 'text-accent-400',
+  rain: 'text-accent-500',
   snow: 'text-cyan-400',
-  storm: 'text-indigo-500',
+  storm: 'text-purple-500',
 }
 
-export default function WeatherIcon({ code, className = '', ...props }: { code: number } & LucideProps) {
+/** `plain` drops the per-condition colour so the icon inherits the text colour (coloured day tiles). */
+export default function WeatherIcon({ code, plain = false, className = '', ...props }: { code: number; plain?: boolean } & LucideProps) {
   const kind = weatherKind(code)
   const Icon = ICONS[kind]
-  return <Icon className={`${COLORS[kind]} ${className}`} strokeWidth={1.75} {...props} />
+  return <Icon className={`${plain ? '' : COLORS[kind]} ${className}`} strokeWidth={1.75} {...props} />
 }

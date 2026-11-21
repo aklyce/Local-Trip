@@ -11,7 +11,6 @@ import {
   Car,
   Clock,
   CloudSun,
-  ListChecks,
   Map as MapIcon,
   Moon,
   PartyPopper,
@@ -21,7 +20,12 @@ import {
   Ticket,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
+import { Chip } from '@/components/base/badges/chip'
+import { Button, ButtonLink } from '@/components/base/buttons/button'
+import { Skeleton, SkeletonText } from '@/components/base/skeleton/skeleton'
+import { SpinnerGlyph } from '@/components/base/spinner/spinner'
+import { Tab, TabList, TabPanel, Tabs } from '@/components/base/tabs/tabs'
 import { haversineKm } from '../api/distance'
 import { Card, ServiceCard } from '../components/Card'
 import ChecklistCard from '../components/ChecklistCard'
@@ -32,10 +36,12 @@ import TransportCard from '../components/TransportCard'
 import TripMap, { MapLegend } from '../components/TripMap'
 import WeatherPanel from '../components/WeatherPanel'
 import { db } from '../db'
-import { checklistProgress, formatProgress } from '../lib/checklist'
+import { checklistProgress } from '../lib/checklist'
 import { daysBetween, formatRange, today } from '../lib/dates'
-import { shortName } from '../lib/style'
-import { formatDuration, km, mi } from '../lib/transport'
+import { cx } from '@/utils/cx'
+import TopoArt from '../components/TopoArt'
+import { FIELD, shortName } from '../lib/style'
+import { KM_PER_MILE, formatDuration, km, mi } from '../lib/transport'
 import { useTripServices } from '../lib/useTripServices'
 import type { ServiceKey, Trip } from '../types'
 
@@ -69,81 +75,58 @@ export default function TripPage() {
   const busy = loading.size > 0
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
-      {/* Header */}
-      <header className="pt-8">
-        <div className="flex items-center justify-between gap-4">
-          <Link to="/history" className="flex items-center gap-1.5 text-sm font-medium text-ink-soft hover:text-ink">
-            <ArrowLeft className="size-4" /> My trips
-          </Link>
-          <button
-            type="button"
-            onClick={() => refresh()}
-            disabled={busy}
-            className="flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-sm font-semibold text-ink shadow-sm transition hover:border-accent/40 focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-wait disabled:opacity-60"
-          >
-            <RefreshCw className={`size-4 ${busy ? 'animate-spin motion-reduce:animate-none' : ''}`} />
-            {busy ? 'Updating…' : 'Refresh data'}
-          </button>
-        </div>
+    <>
+      {/* Header band: cobalt field with this destination's own contour art. */}
+      <header className={cx('relative isolate overflow-hidden', FIELD.trip)}>
+        <TopoArt seed={trip.destination.name} peaks={4} rings={14} animate className="-z-10 opacity-35" />
+        <div className="mx-auto max-w-6xl px-4 pb-10 pt-24 sm:px-6 sm:pb-12 sm:pt-28">
+          <div className="flex items-center justify-between gap-4">
+            <ButtonLink href="#/history" variant="secondary" size="small" leadingIcon={ArrowLeft}>
+              My trips
+            </ButtonLink>
+            <Button variant="secondary" size="small" leadingIcon={busy ? BusyGlyph : RefreshCw} onClick={() => refresh()} disabled={busy}>
+              {busy ? 'Updating…' : 'Refresh data'}
+            </Button>
+          </div>
 
-        <p className="mt-8 text-xs font-semibold uppercase tracking-[0.2em] text-accent">Trip overview</p>
-        <h1 className="mt-3 font-display text-6xl leading-[0.95] text-ink sm:text-7xl">{shortName(trip.destination)}</h1>
-        <p className="mt-3 text-ink-soft">
-          From {shortName(trip.origin)} to {trip.destination.name}
-        </p>
+          <h1 className="mt-10 text-poster">{shortName(trip.destination)}</h1>
+          <p className="mt-4 text-headline-regular text-white/85">
+            From {shortName(trip.origin)} to {trip.destination.name}
+          </p>
 
-        <div className="mt-5 flex flex-wrap gap-2 text-sm">
-          <Chip icon={CalendarDays}>{formatRange(trip.startDate, trip.endDate)}</Chip>
-          <Chip icon={Moon}>
-            {days} {days === 1 ? 'day' : 'days'} · {nights} {nights === 1 ? 'night' : 'nights'}
-          </Chip>
-          <Chip icon={Clock}>{countdown(trip)}</Chip>
-          <button
-            type="button"
-            onClick={() => setTab('packing')}
-            className="flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1.5 font-semibold text-accent-strong ring-1 ring-accent/20 hover:ring-accent/40 focus-visible:outline-2 focus-visible:outline-accent"
-          >
-            <ListChecks className="size-4" /> {formatProgress(progress)}
-          </button>
-        </div>
-
-        {/* Tabs */}
-        {/* ←/→ switch tabs, following the ARIA tabs pattern */}
-        <div
-          role="tablist"
-          aria-label="Trip sections"
-          onKeyDown={(e) => {
-            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
-            const next: Tab = tab === 'overview' ? 'packing' : 'overview'
-            setTab(next)
-            requestAnimationFrame(() => document.getElementById(`tab-${next}`)?.focus())
-          }}
-          className="mt-8 flex gap-1 border-b border-line"
-        >
-          <TabButton id="tab-overview" selected={tab === 'overview'} onClick={() => setTab('overview')} controls="panel-overview">
-            Overview
-          </TabButton>
-          <TabButton id="tab-packing" selected={tab === 'packing'} onClick={() => setTab('packing')} controls="panel-packing">
-            Packing list
-            <span className="ml-1.5 rounded-full bg-paper px-1.5 text-xs text-ink-soft ring-1 ring-line">{progress.total}</span>
-          </TabButton>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Fact icon={CalendarDays}>{formatRange(trip.startDate, trip.endDate)}</Fact>
+            <Fact icon={Moon}>
+              {days} {days === 1 ? 'day' : 'days'} · {nights} {nights === 1 ? 'night' : 'nights'}
+            </Fact>
+            <Fact icon={Clock}>{countdown(trip)}</Fact>
+          </div>
         </div>
       </header>
 
-      <div className="mt-8">
-        {tab === 'overview' ? (
-          <div id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="space-y-6">
-            <Overview trip={trip as Trip & { id: number }} loading={loading} refresh={refresh} />
-          </div>
-        ) : (
-          <div id="panel-packing" role="tabpanel" aria-labelledby="tab-packing" className="max-w-3xl">
-            <ChecklistCard trip={{ ...trip, id }} hasForecast={hasForecastOrUnknown(trip, loading)} />
-          </div>
-        )}
+      <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+      {/* BoardUI Tabs (React Aria): arrow keys move between tabs; the tab is kept in the URL. */}
+      <Tabs selectedKey={tab} onSelectionChange={(key) => setTab(key as Tab)} className="mt-6">
+        <TabList aria-label="Trip sections">
+          <Tab id="overview">Overview</Tab>
+          <Tab id="packing" count={`${progress.done}/${progress.total}`}>
+            Packing list
+          </Tab>
+        </TabList>
+        <TabPanel id="overview" className="mt-6 space-y-5">
+          <Overview trip={trip as Trip & { id: number }} loading={loading} refresh={refresh} />
+        </TabPanel>
+        <TabPanel id="packing" className="mt-6 max-w-3xl">
+          <ChecklistCard trip={{ ...trip, id }} hasForecast={hasForecastOrUnknown(trip, loading)} />
+        </TabPanel>
+      </Tabs>
       </div>
-    </div>
+    </>
   )
+}
+
+function BusyGlyph({ className }: { className?: string }) {
+  return <SpinnerGlyph size="sm" className={`${className ?? ''} text-current`} />
 }
 
 /** Hide the "no forecast" note until we actually know the weather kind. */
@@ -182,17 +165,17 @@ function Overview({
           icon={Ruler}
           value={
             <>
-              {Math.round(straightKm).toLocaleString()}
-              <span className="ml-1.5 text-2xl font-medium text-ink-muted">km</span>
+              {Math.round(straightKm / KM_PER_MILE).toLocaleString()}
+              <span className="ml-1.5 text-title-2-medium text-white/60">mi</span>
             </>
           }
-          detail={`${mi(straightKm)} as the crow flies`}
+          detail={`${km(straightKm)} as the crow flies`}
         />
         <StatTile
           label="Drive"
           icon={Car}
           value={route?.kind === 'route' ? formatDuration(route.durationMin) : route?.kind === 'none' ? 'No road' : dash('route')}
-          detail={route?.kind === 'route' ? `${km(route.distanceKm)} by road` : 'by road'}
+          detail={route?.kind === 'route' ? `${mi(route.distanceKm)} by road` : 'by road'}
         />
         <StatTile label="Trip length" icon={Moon} value={days} detail={days === 1 ? 'day' : 'days'} />
         <StatTile
@@ -201,10 +184,10 @@ function Overview({
           value={avgHigh === null ? dash('weather') : `${Math.round(avgHigh)}°C`}
           detail={isHistorical ? 'last year, not a forecast' : 'forecast'}
         />
-        <StatTile label="Events" icon={Ticket} value={events ? events.length : dash('events')} detail="within 50 km" />
+        <StatTile label="Events" icon={Ticket} value={events ? events.length : dash('events')} detail="within 31 mi" />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-3">
         <Card title="Map" icon={MapIcon} subtitle={`${shortName(trip.origin)} → ${shortName(trip.destination)}`} className="lg:col-span-2">
           <div className="h-80">
             <TripMap origin={trip.origin} destination={trip.destination} road={route?.kind === 'route' ? route.geometry : undefined} />
@@ -218,6 +201,7 @@ function Overview({
           state={snap.holidays}
           loading={loading.has('holidays')}
           onRetry={retry('holidays')}
+        skeleton={<SkeletonText lines={4} lineClassName="h-5" />}
         >
           {(holidays) => <HolidaysPanel holidays={holidays} />}
         </ServiceCard>
@@ -233,22 +217,25 @@ function Overview({
         }
         action={
           isHistorical ? (
-            <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-sm font-semibold text-amber-900">
+            <Chip color="yellow" className="shrink-0">
               Historical · not a forecast
-            </span>
+            </Chip>
           ) : weather ? (
-            <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-sm font-semibold text-accent-strong">Forecast</span>
+            <Chip color="blue" className="shrink-0">
+              Forecast
+            </Chip>
           ) : undefined
         }
         state={snap.weather}
         loading={loading.has('weather')}
         onRetry={retry('weather')}
+        skeleton={<TileSkeleton count={Math.min(days, 5)} className="h-48" />}
       >
         {(w) => <WeatherPanel weather={w} />}
       </ServiceCard>
 
       {/* Row below Weather: getting there + packing list */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2">
         <TransportCard trip={trip} straightKm={straightKm} route={snap.route} loading={loading.has('route')} onRetry={retry('route')} />
         <ChecklistCard trip={trip} hasForecast={hasForecastOrUnknown(trip, loading)} />
       </div>
@@ -256,10 +243,11 @@ function Overview({
       <ServiceCard
         title="Events nearby"
         icon={Ticket}
-        subtitle="Ticketmaster listings within 50 km during your dates"
+        subtitle="Ticketmaster listings within 31 mi (50 km) during your dates"
         state={snap.events}
         loading={loading.has('events')}
         onRetry={retry('events')}
+        skeleton={<TileSkeleton count={3} className="h-56" />}
       >
         {(list) => <EventsPanel events={list} />}
       </ServiceCard>
@@ -267,61 +255,39 @@ function Overview({
   )
 }
 
-function TabButton({
-  id,
-  selected,
-  onClick,
-  controls,
-  children,
-}: {
-  id: string
-  selected: boolean
-  onClick: () => void
-  controls: string
-  children: ReactNode
-}) {
+/** Loading placeholder: a row of blocks the size of the real tiles (weather days, event cards). */
+function TileSkeleton({ count, className }: { count: number; className?: string }) {
   return (
-    <button
-      type="button"
-      role="tab"
-      id={id}
-      // Only the selected tab is in the Tab order; arrows move between tabs.
-      tabIndex={selected ? 0 : -1}
-      aria-selected={selected}
-      aria-controls={controls}
-      onClick={onClick}
-      className={`-mb-px flex items-center border-b-2 px-4 py-2.5 text-sm transition focus-visible:outline-2 focus-visible:outline-accent ${
-        selected ? 'border-ink font-semibold text-ink' : 'border-transparent font-medium text-ink-soft hover:text-ink'
-      }`}
-    >
-      {children}
-    </button>
+    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}>
+      {Array.from({ length: count }, (_, i) => (
+        <Skeleton key={i} className={cx('rounded-3xl', className)} />
+      ))}
+    </div>
   )
 }
 
-function Chip({ icon: Icon, children }: { icon: typeof Clock; children: ReactNode }) {
+/** One trip fact in the header (dates, length, countdown). */
+function Fact({ icon: Icon, children }: { icon: typeof Clock; children: ReactNode }) {
   return (
-    <span className="flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-ink-soft">
-      <Icon className="size-4 text-ink-muted" />
+    <Chip color="gray" variant="subtle" className="gap-1.5 px-2">
+      <Icon className="size-4 text-foreground-icon-secondary" aria-hidden />
       {children}
-    </span>
+    </Chip>
   )
 }
 
 function TripNotFound() {
   return (
-    <div className="mx-auto max-w-xl px-4 py-24 text-center sm:px-6">
-      <h1 className="font-display text-5xl text-ink">Trip not found.</h1>
-      <p className="mt-4 text-ink-soft">
+    <div className="mx-auto max-w-xl px-4 py-40 text-center sm:px-6">
+      <h1 className="font-display text-display-2-semibold tracking-tight text-text-primary">Trip not found</h1>
+      <p className="mt-3 text-body-regular text-text-secondary">
         It may have been deleted, or it was saved in a different browser. Trips live only in the browser that created them.
       </p>
-      <div className="mt-6 flex justify-center gap-3">
-        <Link to="/history" className="rounded-full border border-line bg-white px-5 py-2.5 text-sm font-semibold text-ink hover:bg-paper">
+      <div className="mt-6 flex justify-center gap-2">
+        <ButtonLink href="#/history" variant="secondary">
           My trips
-        </Link>
-        <Link to="/" className="rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-strong">
-          Discover places
-        </Link>
+        </ButtonLink>
+        <ButtonLink href="#/">Discover places</ButtonLink>
       </div>
     </div>
   )

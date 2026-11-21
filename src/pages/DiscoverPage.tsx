@@ -1,8 +1,14 @@
 // Discover (#/) — the entry page (PRD v2 §4, DISC-1 to DISC-5).
-// Editorial hero, filter bar and curated destination cards. Every planning action opens
+// Short header, filter bar and curated destination cards. Every planning action opens
 // the shared PlanTripDialog; nothing here creates a trip directly.
 import { ArrowRight, Compass, MapPin, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Button } from '@/components/base/buttons/button'
+import { LinkButton } from '@/components/base/buttons/link-button'
+import { TextField } from '@/components/base/input/input'
+import { TextareaBase } from '@/components/base/textarea/textarea'
+import { EmptyState } from '../components/Card'
+import TopoArt from '../components/TopoArt'
 import DestinationCard from '../components/DestinationCard'
 import DiscoverFilters from '../components/DiscoverFilters'
 import { DESTINATIONS, DISCOVER_ORIGIN } from '../data/destinations'
@@ -11,7 +17,10 @@ import { usePlanTrip } from '../lib/planTrip'
 import { groqConfigured } from '../api/groq'
 import { checkSupport } from '../lib/tripParser'
 
-const NO_FILTERS: Filters = { query: '', category: null, maxKm: null }
+// Clicking one fills the composer; nothing is sent until the user presses Plan it.
+const EXAMPLES = ['Monterey this weekend', 'Lake Tahoe for 3 days next month', 'Los Angeles, Dec 12 to 14']
+
+const NO_FILTERS: Filters = { query: '', category: null, maxMi: null }
 
 export default function DiscoverPage() {
   const planTrip = usePlanTrip()
@@ -42,53 +51,83 @@ export default function DiscoverPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6">
-      {/* Hero: headline left, supporting text right (VIS-3) */}
-      <section className="grid gap-8 pb-10 pt-12 sm:pt-16 lg:grid-cols-[1fr_320px] lg:items-end">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Less planning. More going.</p>
-          <h1 className="mt-4 font-display text-6xl leading-[0.95] text-ink sm:text-8xl">
-            Your next
-            <br />
-            <span className="text-accent">little escape.</span>
-          </h1>
-        </div>
-        <div className="lg:pb-3">
-          <div className="mb-4 h-px w-12 bg-ink-muted/50" />
-          <p className="text-ink-soft">
-            A weekend away. A new point of view. Find somewhere good, then bring your whole trip together.
+    <>
+      {/* Hero: a full-width cobalt field with contour lines that draw in once. The "describe your
+          trip" composer is the main way in, so it sits large and centred on top. */}
+      <header className="relative isolate overflow-hidden bg-accent-600 text-white">
+        <TopoArt seed="Berkeley to anywhere" peaks={4} rings={11} animate className="-z-10 opacity-30" />
+        <div className="mx-auto max-w-3xl px-4 pb-16 pt-28 text-center sm:px-6 sm:pb-24 sm:pt-36">
+          <h1 className="text-poster">Where to next?</h1>
+          <p className="mx-auto mt-5 max-w-md text-headline-regular text-white/85">
+            {canAsk
+              ? 'Say it in a sentence. We’ll fill in the plan with weather, events, the route and a packing list.'
+              : 'Pick a place and your dates. We’ll add the weather, events, the route and a packing list.'}
           </p>
-          <p className="mt-4 flex items-center gap-1.5 text-sm text-ink-muted">
-            <MapPin className="size-4" /> Starting from Berkeley, CA
-          </p>
-        </div>
-      </section>
 
-      {/* Hidden without usable WebGPU; the filters and "Plan it" links below still work everywhere. */}
-      {canAsk && (
-        <form onSubmit={askTrip} role="search" aria-label="Describe your trip" className="mb-6">
-          <label htmlFor="discover-prompt" className="sr-only">
-            Describe your trip
-          </label>
-          <div className="flex items-center gap-2 rounded-2xl border border-line bg-white p-2 shadow-sm focus-within:border-accent focus-within:ring-3 focus-within:ring-accent/20">
-            <Sparkles className="ml-2 size-5 shrink-0 text-accent" aria-hidden />
-            <input
-              id="discover-prompt"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Tell us your trip: “San Francisco next weekend from LA”"
-              className="min-w-0 flex-1 bg-transparent px-1 py-2 text-base text-ink placeholder:text-ink-muted focus:outline-none"
-            />
-            <button
-              type="submit"
-              disabled={!prompt.trim()}
-              className="flex shrink-0 items-center gap-1.5 rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-ink/30"
-            >
-              Plan it <ArrowRight className="size-4" />
-            </button>
-          </div>
-        </form>
-      )}
+          {/* Hidden without a usable model; the filters and "Plan trip" buttons below still work everywhere. */}
+          {canAsk ? (
+            <>
+              <form
+                onSubmit={askTrip}
+                role="search"
+                aria-label="Describe your trip"
+                className="mx-auto mt-9 max-w-2xl rounded-3xl bg-background-primary-default p-4 text-left shadow-[0_24px_60px_-12px_rgb(0_0_0/0.45)] ring-1 ring-white/20 sm:p-5"
+              >
+                <TextField
+                  aria-label="Describe your trip"
+                  value={prompt}
+                  onChange={setPrompt}
+                  fieldClassName="rounded-none bg-transparent p-0 ring-0"
+                  inputClassName="px-0 text-title-3-regular"
+                >
+                  <TextareaBase
+                    rows={3}
+                    autoResize
+                    maxRows={6}
+                    placeholder="San Francisco next weekend from LA, three days"
+                    onKeyDown={(e) => {
+                      // Enter sends, Shift+Enter makes a new line.
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        e.currentTarget.form?.requestSubmit()
+                      }
+                    }}
+                  />
+                </TextField>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <span className="flex min-w-0 items-center gap-1.5 text-body-regular text-text-tertiary">
+                    <MapPin className="size-4 shrink-0" aria-hidden />
+                    <span className="truncate">From Berkeley, CA unless you say otherwise</span>
+                  </span>
+                  <Button type="submit" disabled={!prompt.trim()} leadingIcon={Sparkles}>
+                    Plan it
+                  </Button>
+                </div>
+              </form>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                <span className="text-body-medium text-white/80">Try</span>
+                {EXAMPLES.map((example) => (
+                  <button
+                    key={example}
+                    type="button"
+                    onClick={() => setPrompt(example)}
+                    className="cursor-pointer rounded-full border border-white/35 px-3 py-1 text-body-medium text-white outline-none transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white"
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <Button variant="secondary" className="mt-8" onClick={() => planTrip()}>
+              Plan a trip
+            </Button>
+          )}
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-6xl px-4 pb-16 pt-12 sm:px-6">
+        <h2 className="mb-5 font-display text-display-4-semibold tracking-tight text-text-primary">Or start from a place</h2>
 
       <DiscoverFilters
         filters={filters}
@@ -97,24 +136,20 @@ export default function DiscoverPage() {
         surpriseDisabled={results.length === 0}
       />
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-2 text-sm">
-        <p className="text-ink-muted" aria-live="polite">
-          <span className="font-semibold text-ink">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-body-regular text-text-secondary" aria-live="polite">
+          <span className="text-body-semibold text-text-primary">
             {results.length} {results.length === 1 ? 'place' : 'places'}
           </span>{' '}
-          to get away · Curated California inspiration
+          · Curated California inspiration
         </p>
-        <button
-          type="button"
-          onClick={() => planTrip()}
-          className="flex items-center gap-1 font-medium text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent"
-        >
-          Somewhere else in mind? Plan it <ArrowRight className="size-4" />
-        </button>
+        <LinkButton onClick={() => planTrip()} trailingIcon={ArrowRight}>
+          Somewhere else in mind?
+        </LinkButton>
       </div>
 
       {results.length > 0 ? (
-        <ul className="mt-5 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {results.map((d) => (
             <li key={d.id} className="flex">
               <DestinationCard destination={d} onPlan={() => planTrip(d.place)} />
@@ -122,43 +157,23 @@ export default function DiscoverPage() {
           ))}
         </ul>
       ) : (
-        <div className="mt-5 flex flex-col items-center gap-3 rounded-3xl border border-dashed border-line px-4 py-14 text-center">
-          <Compass className="size-7 text-ink-muted" strokeWidth={1.5} />
-          <p className="text-ink-soft">No places match those filters.</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => setFilters(NO_FILTERS)}
-              className="rounded-full border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-paper"
-            >
-              Clear filters
-            </button>
-            <button
-              type="button"
-              onClick={() => planTrip()}
-              className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-accent-strong"
-            >
-              Plan a custom trip
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Closing call to action */}
-      <section className="my-20 flex flex-col items-start justify-between gap-6 border-t border-line pt-12 sm:flex-row sm:items-end">
-        <h2 className="font-display text-4xl leading-tight text-ink sm:text-5xl">
-          The good part is getting there.
-          <br />
-          <span className="text-accent">We’ll help with the details.</span>
-        </h2>
-        <button
-          type="button"
-          onClick={() => planTrip()}
-          className="flex shrink-0 items-center gap-2 rounded-full bg-ink px-6 py-3 font-semibold text-white hover:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        <EmptyState
+          icon={Compass}
+          title="No places match"
+          className="mt-4 py-14"
+          actions={
+            <>
+              <Button variant="secondary" onClick={() => setFilters(NO_FILTERS)}>
+                Clear filters
+              </Button>
+              <Button onClick={() => planTrip()}>Plan a custom trip</Button>
+            </>
+          }
         >
-          Make a plan <ArrowRight className="size-4" />
-        </button>
-      </section>
-    </div>
+          Try a different search or category, or plan a trip to anywhere you like.
+        </EmptyState>
+      )}
+      </div>
+    </>
   )
 }

@@ -1,60 +1,124 @@
-@import 'tailwindcss';
+/* App stylesheet. BoardUI (src/styles/) provides Tailwind, the theme tokens and the type scale;
+   this file only adds what is specific to Local Trip. Use BoardUI semantic tokens
+   (text-text-primary, bg-background-primary-default, border-border-button-default, accent-*)
+   and composite type utilities (text-body-medium, text-title-1-semibold …), not hex values. */
+@import './styles/globals.css';
+
+:root {
+  /* BoardUI's theme reads its typeface from --font-inter (Inter is loaded in index.html). */
+  --font-inter: 'Inter';
+}
 
 @theme {
-  /* PRD v2 VIS-1: expressive serif for hero headings, readable sans for everything else */
-  --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Libre Caslon Display', ui-serif, Georgia, serif;
-
-  /* PRD v2 VIS-2 palette: pale background, white cards, dark ink, restrained muted-blue accent.
-     ink-soft / ink-muted were checked for >= 4.5:1 contrast on paper, white and accent-soft. */
-  --color-paper: #f6f7fb;
-  --color-ink: #171c29;
-  --color-ink-soft: #4b5468;
-  --color-ink-muted: #5f6b80;
-  --color-line: #e0e3e9;
-  --color-accent: #40557c;
-  --color-accent-strong: #2f4163;
-  /* Pale blue fill for selected chips/controls (pair with a text or shape cue, not color alone) */
-  --color-accent-soft: #e8edf7;
-  --color-sun: #f59e0b;
-
-  /* Chart series (validated categorical slots 1 and 2) */
-  --color-series-1: #2a78d6;
-  --color-series-2: #eb6834;
+  /* Display face for page titles and place names only; everything else is BoardUI's Inter. */
+  --font-display: 'Bricolage Grotesque', var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Big page titles: tight, heavy, fluid between phone and desktop. */
+@utility text-poster {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(3rem, 10vw, 7.5rem);
+  line-height: 0.92;
+  letter-spacing: -0.035em;
+}
+
+/* Place names on cards and tiles. */
+@utility text-place {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.625rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* Contour lines draw themselves in once (TopoArt `animate`). Paths use pathLength=1. */
+.topo-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: topo-draw 1.6s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+@keyframes topo-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Small scale-in for a badge that appears after an action (packing list "Ready to go"). */
+.pop-in {
+  animation: pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+/* Page ground: a faint grey so white cards stand out. */
+html,
 body {
-  background: var(--color-paper);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-}
-
-/* Libre Caslon Display ships only weight 400: never fake-bold it,
-   so existing font-semibold classes on headings render the real face. */
-.font-display {
-  font-synthesis: none;
-}
-
-/* Calendar icon in date inputs picks up the text color */
-input[type='date']::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-  opacity: 0.6;
+  background-color: var(--color-background-secondary-default);
 }
 
 .leaflet-container {
   font-family: var(--font-sans);
 }
 
-/* PRD v2 VIS-6: every focusable element gets a visible ring by default (components may refine it). */
+/* Trip map: grey out the OpenStreetMap tiles (only the tiles, not the route or pins) and
+   restyle Leaflet's own controls and labels to match the app. */
+.trip-map {
+  background: var(--color-neutral-200);
+}
+.trip-map .leaflet-tile-pane {
+  filter: grayscale(1) contrast(0.85) brightness(1.08);
+}
+.trip-map .leaflet-tooltip {
+  border: 0;
+  border-radius: 9999px;
+  padding: 3px 10px;
+  background: var(--color-neutral-950);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.3);
+}
+.trip-map .leaflet-tooltip.trip-map-destination {
+  background: var(--color-accent-600);
+}
+.trip-map .leaflet-tooltip::before {
+  display: none;
+}
+.trip-map .leaflet-bar {
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.25);
+}
+.trip-map .leaflet-bar a {
+  background: var(--color-neutral-950);
+  color: #fff;
+  border-bottom-color: rgb(255 255 255 / 0.15);
+}
+.trip-map .leaflet-bar a:hover {
+  background: var(--color-neutral-800);
+}
+.trip-map .leaflet-control-attribution {
+  border-top-left-radius: 8px;
+  background: rgb(255 255 255 / 0.8);
+  font-size: 0.6875rem;
+}
+
+/* Every focusable element gets a visible ring by default (PRD VIS-6); BoardUI components refine it. */
 @layer base {
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-border-focus-ring);
     outline-offset: 2px;
   }
 }
 
-/* PRD v2 VIS-6: respect "reduce motion" — no hover lifts, spins or smooth scrolling. */
+/* PRD VIS-6: respect "reduce motion" — no hover lifts, spins or smooth scrolling. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

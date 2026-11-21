@@ -5,10 +5,10 @@ export function shortName(place: Place): string {
   return place.name.split(',')[0]
 }
 
-/** A stable gradient per destination, so each trip gets its own look without needing photos. */
-export function placeGradient(name: string): string {
-  let hash = 0
-  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0
-  const hue = hash % 360
-  return `linear-gradient(135deg, hsl(${hue} 65% 32%), hsl(${(hue + 40) % 360} 70% 22%))`
-}
+/** Solid colour fields behind the contour art: one per Discover category, cobalt for saved trips. */
+export const FIELD = {
+  city: 'bg-orange-500 text-orange-950',
+  water: 'bg-cyan-500 text-cyan-950',
+  outdoors: 'bg-emerald-500 text-emerald-950',
+  trip: 'bg-accent-600 text-white',
+} as const

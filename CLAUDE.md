@@ -31,7 +31,8 @@ Angel's PRD v2 ("Local Trip — Discovery Redesign") + prototype (https://local-
 - **Scope is frozen** (PRD: Nov 22). From here: bug fixes, demo data, slides, `LEARNINGS.md`, fallback recording (Nov 27). No new features.
 - Still open: Discover photos from Angel (`public/images/<id>.jpg`, licensing), team sign-off on the defaults below, Safari check.
 - Proposed defaults (team still to confirm): keep numeric `++id` (no UUID migration); Discover = 6 curated California places, origin fixed to Berkeley; keep `VITE_TICKETMASTER_KEY` in the browser and say so in README; owners unassigned.
-- Visual tokens live in `src/index.css` `@theme` (PRD VIS-2 palette, Libre Caslon Display + DM Sans). Use token classes, not hex values.
+- UI is built on BoardUI (https://www.boardui.com, added Nov 20): source-owned components in `src/components/base/` (React Aria), theme in `src/styles/`, rules in `AGENTS.md`. Use its components (`Button`, `Input`, `Modal`, `ComboBox`, `Tabs`, `Chip` …), semantic tokens (`text-text-primary`, `bg-background-primary-default`, `border-border-button-default`, `accent-*`) and type utilities (`text-body-regular`, `text-title-2-semibold`), not hex values or hand-built controls. Add more with `npx boardui@latest add <name> --yes --dir src`. Font is Inter. This replaced the PRD VIS-1/VIS-2 serif + muted-blue look (team still to confirm). Imports use the `@/` alias (→ `src/`).
+- On top of BoardUI the app has its own identity (Nov 20): contour-map art (`src/components/TopoArt.tsx`, seeded by place name), cobalt header bands (`FIELD` in `src/lib/style.ts`, also the category colours), display face Bricolage Grotesque (`font-display`, `text-poster`, `text-place` in `src/index.css`), dark floating menu and footer. Distances are stored in km and shown in miles (`mi()` in `src/lib/transport.ts`); temperature is still °C.
 
 ## Decisions already made
 
@@ -53,5 +54,5 @@ Angel's PRD v2 ("Local Trip — Discovery Redesign") + prototype (https://local-
 
 ## Working with the user
 
-- The user writes in Chinese; reply in Chinese. Project documents (PRD, README, LEARNINGS.md, slides) are written in English.
+- Reply in English (changed Nov 20). Project documents (PRD, README, LEARNINGS.md, slides) are written in English.
 - Four people push to one public repo: use feature branches and small commits; don't commit or push unless asked.

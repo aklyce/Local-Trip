@@ -72,17 +72,25 @@ src/
 │   ├── groq.ts           Groq chat completions for the trip search (ConfigError without a key)
 │   └── index.ts          fetchService(): one service, 10 s timeout → ServiceState
 ├── components/         # cards, dialogs, filters, map, checklist, transport
+│   ├── base/             BoardUI components (source-owned, React Aria): buttons, inputs, modal, tabs…
+│   ├── foundations/      BoardUI helpers (direction, scroll fade, chevrons)
+│   ├── TopoArt.tsx       generative contour-map art used across the app
+│   └── Logo.tsx          contour-ring mark (same drawing as public/favicon.svg)
 ├── data/destinations.ts  # curated Discover places
 ├── lib/                # pure helpers: dates, checklist rules, discover filters, transport, hooks
 ├── pages/              # DiscoverPage, TripPage, HistoryPage
+├── styles/             # BoardUI theme tokens, type scale and base styles
+├── utils/              # BoardUI's cx() class merger and helpers
 ├── db.ts               # Dexie schema (v3) and transactional writes
 └── types.ts            # shared types
 ```
 
 **How data flows:** the plan dialog saves a `Trip` (with its starting checklist) and opens `#/trip/:id`. `useTripServices` fetches any service missing from `trip.snapshot`, and `saveService()` stores each result as soon as it arrives. Cards render from the saved trip, so they work offline once loaded.
 
-Stack: Vite + React 19 + TypeScript (strict), Tailwind CSS v4, React Router (hash routing for GitHub Pages), Dexie, Recharts, Leaflet, lucide-react.
+Stack: Vite + React 19 + TypeScript (strict), Tailwind CSS v4, [BoardUI](https://www.boardui.com) components (React Aria), React Router (hash routing for GitHub Pages), Dexie, Recharts, Leaflet, lucide-react. Imports use the `@/` alias for `src/`.
+
+**Design:** BoardUI provides the controls and tokens; `src/index.css` adds the app's own layer: a display face (Bricolage Grotesque) for titles and place names, cobalt header bands, and the contour-map art. Distances are stored in km and shown in miles.
 
 ## Accessibility
 
-Visible labels and focus rings, keyboard-operable autocomplete (↑/↓/Enter/Escape), native modal dialogs (Escape closes, focus is trapped and restored), arrow keys between dashboard tabs, a skip link, reduced-motion support, and no horizontal scrolling from 375 to 1440 px. This has been checked by hand, not formally audited.
+Visible labels and focus rings, keyboard-operable autocomplete (↑/↓/Enter/Escape), React Aria modal dialogs (Escape closes, focus is trapped and restored), arrow keys between dashboard tabs, a skip link, reduced-motion support, and no horizontal scrolling from 375 to 1440 px. This has been checked by hand, not formally audited.

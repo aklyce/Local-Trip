@@ -1,25 +1,39 @@
 // The one shared "Plan a trip" form (PRD v2 §4, FR-1 to FR-4, DISC-4).
 // Opened from Discover cards (destination preselected), Surprise me, and the global
-// "Plan a trip" buttons. Uses a native modal <dialog>, which gives us Escape to close,
-// focus containment and focus restoration from the browser.
+// "Plan a trip" buttons. Split panel: a live route summary on the left, the form on the right. BoardUI Modal (React Aria): Escape / backdrop close, focus trap
+// and focus restoration.
 // The trip is saved to IndexedDB *before* navigating; on a storage failure the form stays open.
-import { ArrowRight, Loader2, X } from 'lucide-react'
+import { ArrowDown, ArrowRight } from 'lucide-react'
+import { Heading } from 'react-aria-components'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Button } from '@/components/base/buttons/button'
+import { HintText } from '@/components/base/input/hint-text'
+import { InputBase, TextField } from '@/components/base/input/input'
+import { Label } from '@/components/base/input/label'
+import { CloseButton } from '@/components/base/buttons/close-button'
+import { Modal, ModalBody, ModalFooter } from '@/components/base/modal/modal'
+import { SpinnerGlyph } from '@/components/base/spinner/spinner'
+import { cx } from '@/utils/cx'
+import { haversineKm } from '../api/distance'
 import { DISCOVER_ORIGIN } from '../data/destinations'
 import { db } from '../db'
 import { mergeSuggestions, suggestLabels } from '../lib/checklist'
 import { addDays, daysBetween, today } from '../lib/dates'
+import { FIELD, shortName } from '../lib/style'
+import { mi } from '../lib/transport'
 import type { ParsedTrip } from '../lib/tripParser'
 import type { Place } from '../types'
+import { Notice } from './Card'
 import LocationInput from './LocationInput'
+import TopoArt from './TopoArt'
 import TripPromptBox from './TripPromptBox'
 
 export interface PlanRequest {
   /** Changes on every open so the form starts fresh. */
   key: number
   destination?: Place
-  /** Natural-language request typed on Discover; parsed by WebLLM when the form opens. */
+  /** Natural-language request typed on Discover; parsed when the form opens. */
   prompt?: string
 }
 
@@ -29,51 +43,38 @@ interface Props {
 }
 
 export default function PlanTripDialog({ request, onClose }: Props) {
-  const ref = useRef<HTMLDialogElement>(null)
-
-  // Keep the native dialog's open state in sync with the request.
-  useEffect(() => {
-    const dialog = ref.current
-    if (!dialog) return
-    if (request && !dialog.open) {
-      dialog.showModal()
-      // React's autoFocus runs before showModal(), so move focus to the marked field ourselves.
-      dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus()
-    }
-    if (!request && dialog.open) dialog.close()
-  }, [request])
-
   return (
-    <dialog
-      ref={ref}
-      aria-labelledby="plan-trip-title"
-      onClose={onClose}
-      // Click on the dimmed backdrop (the dialog element itself, outside the panel) closes it.
-      onClick={(e) => e.target === e.currentTarget && ref.current?.close()}
-      className="m-auto w-[calc(100%-2rem)] max-w-lg overflow-visible rounded-3xl bg-transparent p-0 text-ink backdrop:bg-ink/40"
+    <Modal
+      isOpen={request !== null}
+      onOpenChange={(open) => !open && onClose()}
+      size="xl"
+      className="relative gap-0 border-0 p-0 md:flex-row"
     >
-      {request && (
-        <PlanForm
-          key={request.key}
-          initialDestination={request.destination}
-          initialPrompt={request.prompt}
-          onCancel={() => ref.current?.close()}
-        />
-      )}
-    </dialog>
+      {({ close }) =>
+        request && (
+          <PlanForm
+            key={request.key}
+            initialDestination={request.destination}
+            initialPrompt={request.prompt}
+            onDone={close}
+          />
+        )
+      }
+    </Modal>
   )
 }
 
 function PlanForm({
   initialDestination,
   initialPrompt,
-  onCancel,
+  onDone,
 }: {
   initialDestination?: Place
   initialPrompt?: string
-  onCancel: () => void
+  onDone: () => void
 }) {
   const navigate = useNavigate()
+  const formRef = useRef<HTMLFormElement>(null)
   // DISC-4: origin defaults to Berkeley; both cities stay editable.
   const [origin, setOrigin] = useState<Place | null>(DISCOVER_ORIGIN)
   const [destination, setDestination] = useState<Place | null>(initialDestination ?? null)
@@ -84,7 +85,13 @@ function PlanForm({
   // Bumped after the text box fills the form, so the city inputs remount and show the new names.
   const [fillCount, setFillCount] = useState(0)
 
-  // WebLLM result → the same state the user would set by hand. Missing fields stay unchanged.
+  // With a destination preselected, start on the departure date; otherwise on "Heading to".
+  useEffect(() => {
+    const id = requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus())
+    return () => cancelAnimationFrame(id)
+  }, [])
+
+  // Model result → the same state the user would set by hand. Missing fields stay unchanged.
   function applyParsed(trip: ParsedTrip) {
     if (trip.origin) setOrigin(trip.origin)
     if (trip.destination) setDestination(trip.destination)
@@ -112,7 +119,7 @@ function PlanForm({
       const basics = { origin, destination, startDate, endDate }
       const checklist = mergeSuggestions([], suggestLabels(basics))
       const id = await db.trips.add({ ...basics, checklist, createdAt: Date.now() })
-      onCancel()
+      onDone()
       navigate(`/trip/${id}`)
     } catch {
       setSaveError('Couldn’t save this trip in your browser’s storage. Check that site data is allowed, then try again.')
@@ -120,81 +127,113 @@ function PlanForm({
     }
   }
 
+  const miles = origin && destination && !sameCity ? mi(haversineKm(origin, destination)) : null
+  // The contour art follows the destination, so the panel redraws when you pick a place.
+  const artSeed = destination?.name ?? 'Plan a trip'
+
   return (
-    <form onSubmit={handleSubmit} noValidate className="relative rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
-      <button
-        type="button"
-        onClick={onCancel}
-        aria-label="Close"
-        className="absolute right-4 top-4 grid size-9 place-items-center rounded-full text-ink-soft hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-      >
-        <X className="size-5" />
-      </button>
+    <>
+      {/* Left: live trip summary on the cobalt field. It fills in as the form does. */}
+      <aside className={cx('relative isolate flex shrink-0 flex-col overflow-hidden p-6 md:w-[300px] md:p-7', FIELD.trip)}>
+        <TopoArt key={artSeed} seed={artSeed} peaks={3} rings={12} animate className="-z-10 opacity-35" />
+        <Heading slot="title" className="font-display text-display-4-bold leading-none tracking-tight md:text-display-2-bold">
+          Plan a trip
+        </Heading>
 
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">Something to look forward to</p>
-      <h2 id="plan-trip-title" className="mt-3 font-display text-4xl leading-tight sm:text-5xl">
-        Let’s get you <span className="text-accent">away.</span>
-      </h2>
-      <p className="mt-2 text-sm text-ink-soft">The place, the dates. We’ll bring the details together.</p>
-
-      <div className="mt-6 space-y-4">
-        {/* Free-text first: focused on open unless a Discover card already chose the destination. */}
-        <TripPromptBox initialText={initialPrompt} autoFocus={!initialDestination} onParsed={applyParsed} />
-        <LocationInput key={`o${fillCount}`} label="Leaving from" value={origin} onChange={setOrigin} />
-        <LocationInput
-          key={`d${fillCount}`}
-          label="Heading to"
-          value={destination}
-          onChange={setDestination}
-          placeholder="Where to?"
-          // Focused on open; the trip box takes focus over it once it knows the model can run.
-          autoFocus={!initialDestination}
-        />
-        {sameCity && <p className="text-sm text-rose-700">Origin and destination need to be different places.</p>}
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <DateField
-            label="Departure"
-            value={startDate}
-            autoFocus={!!initialDestination}
-            min={today()}
-            onChange={setStartDate}
-            error={startInPast ? 'Departure can’t be in the past.' : undefined}
-          />
-          <DateField
-            label="Return"
-            value={endDate}
-            min={startDate || today()}
-            onChange={setEndDate}
-            error={endBeforeStart ? 'Return must be on or after departure.' : undefined}
-          />
-        </div>
-        {days !== null && (
-          <p className="text-sm text-ink-muted">
-            {days} {days === 1 ? 'day' : 'days'}
-          </p>
-        )}
-      </div>
-
-      {saveError && (
-        <p role="alert" className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">
-          {saveError}
+        {/* Phones: one compact line. */}
+        <p className="mt-3 flex flex-wrap items-center gap-x-2 text-body-medium text-white/90 md:hidden">
+          {origin ? shortName(origin) : 'Somewhere'}
+          <ArrowRight className="size-4" aria-hidden />
+          {destination ? shortName(destination) : 'somewhere new'}
+          {miles && <span className="text-white/70">{miles}</span>}
         </p>
-      )}
 
-      <button
-        type="submit"
-        disabled={!canSubmit}
-        className="mt-6 flex w-full items-center justify-between rounded-xl bg-ink px-5 py-3.5 font-semibold text-white transition hover:bg-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-ink/30"
-      >
-        {saving ? 'Saving your trip…' : 'Bring my trip together'}
-        {saving ? <Loader2 className="size-5 animate-spin" /> : <ArrowRight className="size-5" />}
-      </button>
-      <p className="mt-3 text-center text-sm text-ink-muted">Saved in this browser. No account needed.</p>
-    </form>
+        {/* Desktop: stacked route with the distance and length as large numerals. */}
+        <div className="mt-auto hidden pt-10 md:block">
+          <p className="text-body-medium text-white/70">From</p>
+          <p className="text-place">{origin ? shortName(origin) : 'Choose a start'}</p>
+          <ArrowDown className="my-3 size-5 text-white/70" aria-hidden />
+          <p className="text-body-medium text-white/70">To</p>
+          <p className="text-place">{destination ? shortName(destination) : 'Somewhere new'}</p>
+
+          <dl className="mt-8 grid grid-cols-2 gap-4 border-t border-white/25 pt-5">
+            <div>
+              <dd className="font-display text-title-1-bold tabular-nums">{miles ?? '–'}</dd>
+              <dt className="text-body-regular text-white/70">straight line</dt>
+            </div>
+            <div>
+              <dd className="font-display text-title-1-bold tabular-nums">
+                {days !== null ? `${days} ${days === 1 ? 'day' : 'days'}` : '–'}
+              </dd>
+              <dt className="text-body-regular text-white/70">trip length</dt>
+            </div>
+          </dl>
+        </div>
+      </aside>
+
+      {/* Right: the form. Only the fields scroll; the actions stay in view. */}
+      <form ref={formRef} onSubmit={handleSubmit} noValidate className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 pb-6 pt-6 md:pt-14">
+        <ModalBody className="space-y-4 py-1">
+          {/* Free-text first: focused on open unless a Discover card already chose the destination. */}
+          <TripPromptBox initialText={initialPrompt} autoFocus={!initialDestination} onParsed={applyParsed} />
+          <LocationInput key={`o${fillCount}`} label="Leaving from" value={origin} onChange={setOrigin} />
+          <LocationInput
+            key={`d${fillCount}`}
+            label="Heading to"
+            value={destination}
+            onChange={setDestination}
+            placeholder="Where to?"
+            autoFocus={!initialDestination}
+          />
+          {sameCity && <Notice tone="error">Origin and destination need to be different places.</Notice>}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <DateField
+              label="Departure"
+              value={startDate}
+              autoFocus={!!initialDestination}
+              min={today()}
+              onChange={setStartDate}
+              error={startInPast ? 'Departure can’t be in the past.' : undefined}
+            />
+            <DateField
+              label="Return"
+              value={endDate}
+              min={startDate || today()}
+              onChange={setEndDate}
+              error={endBeforeStart ? 'Return must be on or after departure.' : undefined}
+            />
+          </div>
+          {saveError && <Notice tone="error">{saveError}</Notice>}
+        </ModalBody>
+        <ModalFooter className="sm:justify-between">
+          <span className="hidden text-body-regular text-text-tertiary sm:block">Saved in this browser. No account needed.</span>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <Button variant="secondary" onClick={onDone}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={!canSubmit}
+              aria-busy={saving || undefined}
+              trailingIcon={saving ? BusyGlyph : ArrowRight}
+            >
+              {saving ? 'Saving…' : 'Create trip'}
+            </Button>
+          </div>
+        </ModalFooter>
+      </form>
+
+      <CloseButton size="md" aria-label="Close" onClick={onDone} className="absolute right-3 top-3 bg-background-primary-default shadow-xs" />
+    </>
   )
 }
 
+function BusyGlyph({ className }: { className?: string }) {
+  return <SpinnerGlyph size="sm" className={`${className ?? ''} text-current`} />
+}
+
+/** Native date input inside BoardUI's field shell (label, invalid state, hint). */
 function DateField({
   label,
   value,
@@ -212,19 +251,10 @@ function DateField({
   onChange: (value: string) => void
 }) {
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-ink">{label}</span>
-      <input
-        type="date"
-        value={value}
-        min={min}
-        required
-        data-autofocus={autoFocus || undefined}
-        aria-invalid={!!error || undefined}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-line bg-white px-3.5 py-3 text-base text-ink focus:border-accent focus:outline-none focus:ring-3 focus:ring-accent/20 aria-invalid:border-rose-400"
-      />
-      {error && <span className="mt-1.5 block text-sm text-rose-700">{error}</span>}
-    </label>
+    <TextField value={value} onChange={onChange} isInvalid={!!error} isRequired className="flex flex-col gap-1">
+      <Label isInvalid={!!error}>{label}</Label>
+      <InputBase type="date" min={min} data-autofocus={autoFocus || undefined} />
+      {error && <HintText isInvalid>{error}</HintText>}
+    </TextField>
   )
 }

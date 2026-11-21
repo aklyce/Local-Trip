@@ -3,6 +3,7 @@
 import type { Trip } from '../types'
 import { shortName } from './style'
 
+// Distances are stored and computed in km (APIs use km) and shown in miles first.
 export const KM_PER_MILE = 1.609344
 export const FLIGHT_KMH = 800
 export const AIRPORT_OVERHEAD_H = 2
