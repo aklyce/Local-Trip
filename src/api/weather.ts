@@ -44,7 +44,10 @@ export async function getWeather(place: Place, startDate: string, endDate: strin
     'precipitation_sum',
     signal,
   )
-  return { kind: 'historical', days }
+  // Label each day with the *trip* date it stands for. Last year's dates fall on different
+  // weekdays (Dec 12, 2025 was a Friday; Dec 12, 2026 is a Saturday), so keeping them showed the
+  // wrong weekday on the tiles.
+  return { kind: 'historical', days: days.map((d, i) => ({ ...d, date: addDays(startDate, i) })) }
 }
 
 async function fetchDaily(

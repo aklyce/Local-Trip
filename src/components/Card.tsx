@@ -34,11 +34,13 @@ export function Panel({ className, children }: { className?: string; children: R
 export function Card({ title, icon: Icon, subtitle, action, className, children }: CardProps) {
   return (
     <Panel className={className}>
-      <header className="mb-5 flex items-start gap-3">
+      {/* flex-wrap + a minimum text width: on phones a wide action chip drops below the title
+          instead of squeezing the subtitle into a one-word-per-line column. */}
+      <header className="mb-5 flex flex-wrap items-start gap-3">
         {Icon && <span className="grid size-9 shrink-0 place-items-center rounded-full bg-neutral-950 text-white">
             <Icon className="size-[18px]" aria-hidden />
           </span>}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-40">
           <h2 className="font-display text-title-2-semibold tracking-tight text-text-primary">{title}</h2>
           {subtitle && <div className="mt-0.5 text-body-regular text-text-secondary">{subtitle}</div>}
         </div>

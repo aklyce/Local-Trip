@@ -8,6 +8,9 @@ export const KM_PER_MILE = 1.609344
 export const FLIGHT_KMH = 800
 export const AIRPORT_OVERHEAD_H = 2
 export const LONG_DRIVE_MIN = 8 * 60
+// Below about 200 mi (320 km) straight-line, airport time alone outweighs the drive, so we
+// don't offer a flight estimate at all.
+export const SHORT_HOP_KM = 320
 
 export function formatDuration(min: number): string {
   const h = Math.floor(min / 60)
@@ -18,6 +21,11 @@ export function formatDuration(min: number): string {
 
 export const km = (n: number) => `${Math.round(n).toLocaleString()} km`
 export const mi = (n: number) => `${Math.round(n / KM_PER_MILE).toLocaleString()} mi`
+
+// Temperatures are stored in °C (Open-Meteo default, and the checklist rules use °C) and shown in °F.
+export const toF = (c: number) => (c * 9) / 5 + 32
+// Historical precipitation is stored in mm and shown in inches.
+export const mmToIn = (mm: number) => mm / 25.4
 
 export function googleFlightsUrl(trip: Trip): string {
   const q = `Flights from ${shortName(trip.origin)} to ${shortName(trip.destination)} on ${trip.startDate} through ${trip.endDate}`

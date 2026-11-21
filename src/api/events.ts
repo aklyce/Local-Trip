@@ -3,10 +3,9 @@
 // Needs VITE_TICKETMASTER_KEY in .env. Note: anything prefixed VITE_ ends up in the client bundle.
 // No key → ConfigError, so the card can say "not configured" instead of showing a failure.
 import type { EventItem, Place } from '../types'
-import { addDays } from '../lib/dates'
 import { ConfigError } from './errors'
 const DISCOVERY_URL = 'https://app.ticketmaster.com/discovery/v2/events.json'
-/** Fetch extra to leave room after dropping events outside the local trip dates. */
+/** Fetch a pool of the most relevant events, keep the top MAX_EVENTS, then show them by date. */
 const FETCH_SIZE = 60
 const MAX_EVENTS = 20
 
@@ -36,20 +35,33 @@ export async function getEvents(place: Place, startDate: string, endDate: string
   url.searchParams.set('latlong', `${place.lat},${place.lon}`)
   url.searchParams.set('radius', '50')
   url.searchParams.set('unit', 'km')
-  // Ticketmaster filters in UTC, but trip dates are local to the destination. Ask for one extra
-  // day on each side, then keep only events whose *local* date falls inside the trip (FR-7).
-  url.searchParams.set('startDateTime', `${addDays(startDate, -1)}T00:00:00Z`)
-  url.searchParams.set('endDateTime', `${addDays(endDate, 1)}T23:59:59Z`)
-  url.searchParams.set('sort', 'date,asc')
+  // Filter on the venue's *local* date/time, so trip dates match without timezone padding (FR-7).
+  url.searchParams.set('localStartDateTime', `${startDate}T00:00:00,${endDate}T23:59:59`)
+  // Relevance, not date: sorting by date filled the whole page with the first day's events in big
+  // cities (LA showed none at all when padded days were included). Relevance spreads the results
+  // across the trip and surfaces headline events; we re-sort by date below for display.
+  url.searchParams.set('sort', 'relevance,desc')
   url.searchParams.set('size', String(FETCH_SIZE))
 
   const res = await fetch(url, { signal })
   if (!res.ok) throw new Error(`Ticketmaster error ${res.status}`)
   const json: { _embedded?: { events: TmEvent[] } } = await res.json()
 
+  const seen = new Set<string>()
   return (json._embedded?.events ?? [])
+    // Safety net: keep only events whose local date is inside the trip.
     .filter((e) => e.dates.start.localDate >= startDate && e.dates.start.localDate <= endDate)
+    // Same show at the same time is sometimes listed twice (e.g. ticket + package); keep one.
+    .filter((e) => {
+      const key = `${e.name}|${e.dates.start.localDate}|${e.dates.start.localTime ?? ''}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
     .slice(0, MAX_EVENTS)
+    .sort((a, b) =>
+      `${a.dates.start.localDate} ${a.dates.start.localTime ?? ''}`.localeCompare(`${b.dates.start.localDate} ${b.dates.start.localTime ?? ''}`),
+    )
     .map((e) => ({
       id: e.id,
       name: e.name,

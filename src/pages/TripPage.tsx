@@ -41,7 +41,7 @@ import { daysBetween, formatRange, today } from '../lib/dates'
 import { cx } from '@/utils/cx'
 import TopoArt from '../components/TopoArt'
 import { FIELD, shortName } from '../lib/style'
-import { KM_PER_MILE, formatDuration, km, mi } from '../lib/transport'
+import { KM_PER_MILE, formatDuration, km, mi, toF } from '../lib/transport'
 import { useTripServices } from '../lib/useTripServices'
 import type { ServiceKey, Trip } from '../types'
 
@@ -181,7 +181,7 @@ function Overview({
         <StatTile
           label="Avg. high"
           icon={Thermometer}
-          value={avgHigh === null ? dash('weather') : `${Math.round(avgHigh)}°C`}
+          value={avgHigh === null ? dash('weather') : `${Math.round(toF(avgHigh))}°F`}
           detail={isHistorical ? 'last year, not a forecast' : 'forecast'}
         />
         <StatTile label="Events" icon={Ticket} value={events ? events.length : dash('events')} detail="within 31 mi" />

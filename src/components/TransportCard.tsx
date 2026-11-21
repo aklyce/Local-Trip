@@ -1,7 +1,8 @@
 // Getting there (PRD v2 FR-12 to FR-14).
 //  - Driving: OSRM road distance and time, or an explicit "no road route" / unavailable state.
 //  - Drive and Fly sit side by side so they can be compared; the suggested one is filled cobalt.
-//  - Flying: suggested when the drive is over 8 hours or there is no road route. The time is a
+//  - Flying: suggested when the drive is over 8 hours or there is no road route. Trips under
+//    SHORT_HOP_KM straight-line get no flight estimate: airports alone take longer than the drive. The time is a
 //    rough estimate (straight-line distance ÷ 800 km/h, about 500 mph, + 2 h for airports), never a schedule or price.
 //  - External search: Google Flights (dates prefilled through its search query) and Rome2Rio
 //    (no date support, so we say so).
@@ -11,7 +12,7 @@ import { ButtonLink } from '@/components/base/buttons/button'
 import { Skeleton } from '@/components/base/skeleton/skeleton'
 import { cx } from '@/utils/cx'
 import { shortName } from '../lib/style'
-import { AIRPORT_OVERHEAD_H, FLIGHT_KMH, LONG_DRIVE_MIN, formatDuration, googleFlightsUrl, km, mi, rome2rioUrl } from '../lib/transport'
+import { AIRPORT_OVERHEAD_H, FLIGHT_KMH, LONG_DRIVE_MIN, SHORT_HOP_KM, formatDuration, googleFlightsUrl, km, mi, rome2rioUrl } from '../lib/transport'
 import type { RouteResult, ServiceState, Trip } from '../types'
 import { Card, ServiceMessage } from './Card'
 
@@ -26,12 +27,14 @@ interface Props {
 export default function TransportCard({ trip, straightKm, route, loading, onRetry }: Props) {
   const data = route?.data
   const flightMin = (straightKm / FLIGHT_KMH + AIRPORT_OVERHEAD_H) * 60
+  // Short hop with a road: flying never makes sense, so the Fly panel says so instead of an estimate.
+  const shortHop = straightKm < SHORT_HOP_KM && data?.kind !== 'none'
   const driveMin = data?.kind === 'route' ? data.durationMin : null
   const suggestFlight = data?.kind === 'none' || (driveMin !== null && driveMin > LONG_DRIVE_MIN)
   // Without route data we can't judge the drive, so neither option is highlighted.
   const pick: Mode | null = suggestFlight ? 'fly' : driveMin !== null ? 'drive' : null
   // Bars share one scale (the slower option is full width), so the gap reads at a glance.
-  const longest = Math.max(driveMin ?? 0, flightMin)
+  const longest = Math.max(driveMin ?? 0, shortHop ? 0 : flightMin)
   const stale = route?.status !== 'ok' && !!data && !loading
 
   return (
@@ -41,7 +44,7 @@ export default function TransportCard({ trip, straightKm, route, loading, onRetr
         <Option
           mode="drive"
           picked={pick === 'drive'}
-          tag={pick === 'drive' ? 'Easy drive' : undefined}
+          tag={pick === 'drive' ? (driveMin !== null && driveMin <= 4 * 60 ? 'Easy drive' : 'Best option') : undefined}
           share={driveMin !== null ? driveMin / longest : null}
           note={`${mi(straightKm)} in a straight line. Roads are always longer.`}
         >
@@ -75,11 +78,24 @@ export default function TransportCard({ trip, straightKm, route, loading, onRetr
           mode="fly"
           picked={pick === 'fly'}
           tag={pick === 'fly' ? (data?.kind === 'none' ? 'Only way there' : 'Faster') : undefined}
-          share={flightMin / longest}
-          note="Rough estimate: straight line at about 500 mph plus 2 h for airports. Not a schedule or a price."
+          share={shortHop ? null : flightMin / longest}
+          note={
+            shortHop
+              ? 'Under 200 mi, check-in and security take longer than the whole drive.'
+              : 'Rough estimate: straight line at about 500 mph plus 2 h for airports. Not a schedule or a price.'
+          }
         >
-          <Duration>≈ {formatDuration(flightMin)}</Duration>
-          <Detail>door to door</Detail>
+          {shortHop ? (
+            <>
+              <Duration>Not worth it</Duration>
+              <Detail>Too short to fly</Detail>
+            </>
+          ) : (
+            <>
+              <Duration>≈ {formatDuration(flightMin)}</Duration>
+              <Detail>door to door</Detail>
+            </>
+          )}
         </Option>
       </div>
 
