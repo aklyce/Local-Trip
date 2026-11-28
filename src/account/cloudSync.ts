@@ -14,8 +14,8 @@ function sanitizeTrip(trip: Trip, id: number): Trip {
   return { ...trip, id }
 }
 
-async function upsertRemote(userId: string, localId: number, trip: Trip): Promise<void> {
-  if (!supabase) return
+async function upsertRemote(userId: string, localId: number, trip: Trip): Promise<boolean> {
+  if (!supabase) return false
   try {
     const { error } = await supabase.from('trips').upsert(
       {
@@ -26,9 +26,14 @@ async function upsertRemote(userId: string, localId: number, trip: Trip): Promis
       },
       { onConflict: 'user_id,local_id' },
     )
-    if (error) console.warn('[cloudSync] upsert failed:', error.message)
+    if (error) {
+      console.warn('[cloudSync] upsert failed:', error.message)
+      return false
+    }
+    return true
   } catch (err) {
     console.warn('[cloudSync] upsert error:', err)
+    return false
   }
 }
 
@@ -126,14 +131,44 @@ export async function syncOnSignIn(userId: string): Promise<void> {
   }
 }
 
-/** Clear local synced trips on sign-out so the next user only sees their own My Trips. */
+/**
+ * Flush any unsaved trips to Supabase first, then clear local synced trips on sign-out
+ * so the next user only sees their own My Trips without losing any data.
+ */
 export async function clearOnSignOut(): Promise<void> {
+  const userId = activeUserId
+  if (userId && supabase) {
+    try {
+      const localTrips = await db.trips.toArray()
+      const results = await Promise.all(
+        localTrips
+          .filter((t): t is Trip & { id: number } => typeof t.id === 'number')
+          .map((t) => upsertRemote(userId, t.id, t)),
+      )
+      if (results.some((ok) => !ok)) {
+        console.warn('[cloudSync] Skipping local clear because cloud backup failed.')
+        activeUserId = null
+        return
+      }
+    } catch (err) {
+      console.warn('[cloudSync] flush before sign-out failed:', err)
+      activeUserId = null
+      return
+    }
+  }
+
   activeUserId = null
   isSyncingFromCloud = true
   try {
-    await db.trips.clear()
-  } catch {
-    // Ignore storage errors on sign-out.
+    await db.transaction('rw', db.trips, async () => {
+      await db.trips.clear()
+    })
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const k = sessionStorage.key(i)
+      if (k?.startsWith('lt_updates_')) sessionStorage.removeItem(k)
+    }
+  } catch (err) {
+    console.warn('[cloudSync] clearOnSignOut error:', err)
   } finally {
     isSyncingFromCloud = false
   }

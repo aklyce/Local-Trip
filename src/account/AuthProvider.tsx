@@ -72,12 +72,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async (): Promise<void> => {
     lastUserId.current = null
     setUser(null)
-    try {
-      await supabase?.auth.signOut({ scope: 'local' })
-    } catch {
-      // Ignore network errors when clearing the local session.
-    }
     await clearOnSignOut()
+    try {
+      await Promise.race([
+        supabase?.auth.signOut({ scope: 'local' }),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ])
+    } catch {
+      // Ignore network/lock errors when clearing the local session.
+    }
   }, [])
 
   return (
