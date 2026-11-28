@@ -16,6 +16,7 @@ import { filterDestinations, type DiscoverFilters as Filters } from '../lib/disc
 import { usePlanTrip } from '../lib/planTrip'
 import { groqConfigured } from '../api/groq'
 import { checkSupport } from '../lib/tripParser'
+import TripUpdatesBanner from '../account/TripUpdatesBanner'
 
 // Clicking one fills the composer; nothing is sent until the user presses Plan it.
 const EXAMPLES = ['Monterey this weekend', 'Lake Tahoe for 3 days next month', 'Los Angeles, Dec 12 to 14']
@@ -127,6 +128,7 @@ export default function DiscoverPage() {
       </header>
 
       <div className="mx-auto max-w-6xl px-4 pb-16 pt-12 sm:px-6">
+        <TripUpdatesBanner />
         <h2 className="mb-5 font-display text-display-4-semibold tracking-tight text-text-primary">Or start from a place</h2>
 
       <DiscoverFilters
