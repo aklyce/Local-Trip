@@ -10,6 +10,9 @@ import { cx } from '@/utils/cx'
 import Logo from './components/Logo'
 import TopoArt from './components/TopoArt'
 import PlanTripDialog, { type PlanRequest } from './components/PlanTripDialog'
+import AuthMenu from './account/AuthMenu'
+import { AuthProvider } from './account/AuthProvider'
+import ThemeToggle from './account/ThemeToggle'
 import { db } from './db'
 import { PlanTripContext } from './lib/planTrip'
 import DiscoverPage from './pages/DiscoverPage'
@@ -38,7 +41,8 @@ export default function App() {
 
   // HashRouter so deep links work on static hosts like GitHub Pages without rewrite rules.
   return (
-    <HashRouter>
+    <AuthProvider>
+      <HashRouter>
       <PlanTripContext.Provider value={openPlan}>
         <div className="flex min-h-screen flex-col">
           {/* Keyboard users can jump past the navigation. Not an href="#…" because routing uses the hash. */}
@@ -79,9 +83,12 @@ export default function App() {
                 <Button leadingIcon={Plus} onClick={() => openPlan()} aria-label="Plan a trip" className="ml-1 rounded-full sm:pr-3">
                   <span className="hidden sm:inline">Plan a trip</span>
                 </Button>
+                <ThemeToggle variant="inline" />
+                <AuthMenu />
               </div>
             </nav>
           </div>
+          <ThemeToggle variant="floating" />
           <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
             <Suspense
               fallback={
@@ -125,6 +132,7 @@ export default function App() {
         </div>
         <PlanTripDialog request={planRequest} onClose={() => setPlanRequest(null)} />
       </PlanTripContext.Provider>
-    </HashRouter>
+      </HashRouter>
+    </AuthProvider>
   )
 }

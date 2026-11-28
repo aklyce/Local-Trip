@@ -1,0 +1,13 @@
+/* Isolated dark-mode tweaks for Leaflet map tiles & attribution so src/index.css stays untouched. */
+.dark .trip-map {
+  background: var(--color-neutral-900);
+}
+
+.dark .trip-map .leaflet-tile-pane {
+  filter: grayscale(1) invert(1) contrast(0.9) brightness(0.9);
+}
+
+.dark .trip-map .leaflet-control-attribution {
+  background: rgb(18 18 18 / 0.8);
+  color: rgb(255 255 255 / 0.7);
+}

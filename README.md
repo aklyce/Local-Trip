@@ -11,6 +11,7 @@ See [PROPOSAL.md](PROPOSAL.md) for the original idea and [README_final_project.m
 - **Plan a trip** dialog: city autocomplete, date validation (no past dates, return after departure, different cities). Saves before opening the dashboard.
 - **Trip dashboard** (`#/trip/:id`): weather (forecast, or last year's weather labeled as such), events, public holidays, map with road route and straight line, driving time, flight estimate, Google Flights / Rome2Rio links, and a packing checklist with weather-based suggestions.
 - **My trips** (`#/history`): saved trips newest first, search by city, upcoming/past counts, packing progress, confirmed delete.
+- **Accounts, trip alerts & dark mode** (`src/account/`): optional **Sign in / Create account** (Supabase Auth) to save each user's *My trips* wishlist across sessions, a **homepage updates banner** that checks upcoming saved trips for weather shifts or new events, and a **Light / Dark mode toggle** (top-right on desktop, inside the nav bar on mobile). Everything in `src/account/` is isolated and optional—without Supabase keys, the app runs offline-first in this browser's IndexedDB.
 
 ## Getting started
 
@@ -34,6 +35,8 @@ Open http://localhost:5173. Without a Ticketmaster key everything works; the Eve
 |---|---|---|
 | `VITE_TICKETMASTER_KEY` | Events card | Free key from developer.ticketmaster.com. **Never commit it.** `.env` is gitignored. |
 | `VITE_GROQ_KEY` | "Describe your trip" search (fast online model) | Optional. Free key from console.groq.com. Without it the search uses the on-device model (WebLLM, needs WebGPU). **Never commit it.** |
+| `VITE_SUPABASE_URL` | Optional account login & per-user My Trips sync | Optional. Project URL from supabase.com. Without it, trips stay local in IndexedDB. **Never commit it.** |
+| `VITE_SUPABASE_ANON_KEY` | Optional account login & per-user My Trips sync | Optional. Publishable/anon key from supabase.com (protected by Postgres Row Level Security). **Never commit it.** |
 
 Anything prefixed `VITE_` is compiled into the JavaScript bundle, so the key is visible to anyone using the deployed site. That is acceptable for this course demo; a real product would call Ticketmaster and Groq through a server-side proxy.
 
@@ -62,6 +65,15 @@ Every request has a 10-second timeout. Each service loads and fails on its own, 
 
 ```
 src/
+├── account/            # isolated optional features (safe to disable without affecting core app)
+│   ├── supabase.ts       Supabase client (returns null when env vars are missing)
+│   ├── authContext.ts    Auth context & useAuth() hook
+│   ├── AuthProvider.tsx  Email/password session & sign-in/sign-out sync
+│   ├── AuthMenu.tsx      Sign in / Create account modal & Sign out button
+│   ├── cloudSync.ts      Dexie hooks mirroring per-user My Trips to Supabase
+│   ├── TripUpdatesBanner.tsx  Homepage banner for weather/event updates & upcoming trip digest
+│   ├── ThemeToggle.tsx   Light/dark mode toggle (BoardUI `.dark` tokens)
+│   └── dark-mode.css     Dark-mode Leaflet map tile overrides
 ├── api/                # one module per external API, each with a header comment
 │   ├── geocode.ts        Photon place search
 │   ├── weather.ts        Open-Meteo forecast / archive
